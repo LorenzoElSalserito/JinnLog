@@ -3,6 +3,10 @@
   "version": "0.5.2",
   "description": "JinnLog - Task Manager & Planner Desktop Application",
   "author": "Lorenzo DM",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LorenzoElSalserito/JinnLog"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
