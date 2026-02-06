@@ -1,5 +1,5 @@
 /**
- * JinnLog API Client v0.7.1
+ * JinnLog API Client v0.7.2
  *
  * This module handles all communication with the Java backend.
  * It works in both Electron (desktop) and browser (web) modes.
@@ -24,7 +24,7 @@
  * @module jinn
  * @author Lorenzo DM
  * @since 0.2.0
- * @updated 0.7.1 - Refactored Notes API
+ * @updated 0.7.2 - Fixed preference parsing
  */
 
 // ========================================
@@ -247,7 +247,16 @@ function loadLocalPreference(key, defaultValue = null) {
             return window.jinn.getPreference(key) ?? defaultValue;
         }
         const stored = localStorage.getItem(key);
-        return stored ? JSON.parse(stored) : defaultValue;
+        // Fix: Handle non-JSON strings (like "it") gracefully
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                // If parsing fails, return the raw string (e.g. "it")
+                return stored;
+            }
+        }
+        return defaultValue;
     } catch (e) {
         console.warn('[JinnLog API] Errore lettura preferenza:', e);
         return defaultValue;

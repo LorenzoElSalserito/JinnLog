@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import MDEditor from "@uiw/react-md-editor";
@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
  * 
  * @author Lorenzo DM
  * @since 0.2.0
- * @updated 0.8.0 - Filtri contestuali e Deep Linking
+ * @updated 0.8.1 - Fix creazione note contestuali
  */
 
 // ========================================
@@ -177,6 +177,31 @@ export default function NotesPage({ shell }) {
         }
     }, [shell?.currentProject]);
 
+    // Helper per aprire il modale con i dati corretti
+    const openCreateModal = useCallback(() => {
+        if (!shell?.currentProject?.id) {
+            toast.warn(t("notes.no_project_selected_select_first"));
+            return;
+        }
+
+        setNewNoteTitle("");
+        
+        // Pre-fill intelligente basato sui filtri attuali
+        if (contextFilter === "TASK" && contextId) {
+            setNewNoteParentType("TASK");
+            setNewNoteParentId(contextId);
+        } else if (contextFilter === "PROJECT" && contextId) {
+            setNewNoteParentType("PROJECT");
+            setNewNoteParentId(contextId);
+        } else {
+            // Default al progetto corrente
+            setNewNoteParentType("PROJECT");
+            setNewNoteParentId(shell.currentProject.id);
+        }
+        
+        setShowCreateModal(true);
+    }, [contextFilter, contextId, shell?.currentProject, t]);
+
     useEffect(() => {
         shell?.setTitle?.(t("Notes & Feed"));
         
@@ -197,18 +222,7 @@ export default function NotesPage({ shell }) {
                 
                 <button
                     className="btn btn-sm btn-primary"
-                    onClick={() => {
-                        setNewNoteTitle("");
-                        // Pre-fill based on current filter
-                        if (contextFilter === "TASK" && contextId) {
-                            setNewNoteParentType("TASK");
-                            setNewNoteParentId(contextId);
-                        } else {
-                            setNewNoteParentType("PROJECT");
-                            setNewNoteParentId(shell.currentProject?.id || "");
-                        }
-                        setShowCreateModal(true);
-                    }}
+                    onClick={openCreateModal}
                 >
                     <i className="bi bi-plus-lg me-1"></i>
                     {t("New Note")}
@@ -218,7 +232,7 @@ export default function NotesPage({ shell }) {
 
         shell?.setHeaderActions?.(headerActions);
         shell?.setRightPanel?.(null);
-    }, [shell, searchTerm, contextFilter, contextId, t]);
+    }, [shell, searchTerm, contextFilter, contextId, t, openCreateModal]);
 
     const loadNotes = useCallback(async () => {
         if (!shell?.currentProject) {
@@ -268,8 +282,6 @@ export default function NotesPage({ shell }) {
                         console.warn("Nota deep-link non trovata", e);
                     }
                 }
-                // Pulisci il contesto per evitare loop o reload indesiderati
-                // (Richiede che shell.navigate gestisca la pulizia o che lo ignoriamo dopo)
             } else if (activeNote && !fetchedNotes.find(n => n.id === activeNote.id)) {
                 // Se cambio filtro e la nota attiva sparisce, deseleziona
                 setActiveNote(null);
@@ -304,7 +316,11 @@ export default function NotesPage({ shell }) {
         }
         
         if (!newNoteParentId) {
-            toast.warn(t("Please select a valid context"));
+            if (newNoteParentType === "PROJECT") {
+                toast.warn(t("notes.no_project_selected_select_first"));
+            } else {
+                toast.warn(t("notes.please_select_a_task"));
+            }
             return;
         }
 
@@ -321,7 +337,16 @@ export default function NotesPage({ shell }) {
                 newNote = await jinn.notesCreateProject(newNoteParentId, noteData);
             }
 
-            setNotes((prev) => [newNote, ...prev]);
+            // Aggiorna la lista SOLO se la nuova nota è coerente con i filtri attuali
+            const shouldAddToList = 
+                contextFilter === "ALL" || 
+                (contextFilter === "PROJECT" && newNoteParentType === "PROJECT") ||
+                (contextFilter === "TASK" && newNoteParentType === "TASK" && newNoteParentId === contextId);
+
+            if (shouldAddToList) {
+                setNotes((prev) => [newNote, ...prev]);
+            }
+            
             setActiveNote(newNote);
             setShowCreateModal(false);
             toast.success(t("Note created"));
@@ -374,7 +399,7 @@ export default function NotesPage({ shell }) {
     const isOwner = activeNote?.owner?.id === currentUserId;
 
     if (loading && notes.length === 0) return <div className="d-flex justify-content-center align-items-center py-5"><div className="spinner-border text-primary"></div></div>;
-    if (!shell?.currentProject) return <div className="text-center py-5"><i className="bi bi-folder2-open fs-1 text-muted d-block mb-3"></i><h5 className="text-muted">{t("No project selected")}</h5><p className="text-muted small">{t("Select or create a project to manage notes.")}</p></div>;
+    if (!shell?.currentProject) return <div className="text-center py-5"><i className="bi bi-folder2-open fs-1 text-muted d-block mb-3"></i><h5 className="text-muted">{t("notes.no_project_selected")}</h5><p className="text-muted small">{t("Select or create a project to manage notes.")}</p></div>;
 
     return (
         <div className="notes-page d-flex h-100" style={{ minHeight: "calc(100vh - 150px)" }}>
@@ -441,7 +466,7 @@ export default function NotesPage({ shell }) {
                             <i className="bi bi-journal-text fs-1 d-block mb-2"></i>
                             <small>{t("No notes found")}</small>
                             <br />
-                            <button className="btn btn-sm btn-primary mt-2" onClick={() => setShowCreateModal(true)}>{t("Create the first note")}</button>
+                            <button className="btn btn-sm btn-primary mt-2" onClick={openCreateModal}>{t("Create the first note")}</button>
                         </div>
                     ) : (
                         notes.map((note) => (
@@ -518,7 +543,7 @@ export default function NotesPage({ shell }) {
                         <i className="bi bi-journal-richtext fs-1 mb-3"></i>
                         <h5>{t("Select a note")}</h5>
                         <p className="small">
-                            {t("Choose a note from the list or")} <button className="btn btn-link btn-sm p-0 ms-1" onClick={() => setShowCreateModal(true)}>{t("create a new one")}</button>
+                            {t("Choose a note from the list or")} <button className="btn btn-link btn-sm p-0 ms-1" onClick={openCreateModal}>{t("create a new one")}</button>
                         </p>
                     </div>
                 )}
@@ -551,11 +576,12 @@ export default function NotesPage({ shell }) {
                                         className="form-select mb-2"
                                         value={newNoteParentType}
                                         onChange={(e) => {
-                                            setNewNoteParentType(e.target.value);
-                                            if (e.target.value === "PROJECT") {
-                                                setNewNoteParentId(shell.currentProject.id);
+                                            const newType = e.target.value;
+                                            setNewNoteParentType(newType);
+                                            if (newType === "PROJECT") {
+                                                setNewNoteParentId(shell.currentProject?.id || "");
                                             } else {
-                                                setNewNoteParentId(""); // Reset per forzare selezione task
+                                                setNewNoteParentId(availableTasks.length > 0 ? availableTasks[0].id : "");
                                             }
                                         }}
                                     >
@@ -564,22 +590,41 @@ export default function NotesPage({ shell }) {
                                     </select>
 
                                     {newNoteParentType === "TASK" && (
-                                        <select 
-                                            className="form-select"
-                                            value={newNoteParentId}
-                                            onChange={(e) => setNewNoteParentId(e.target.value)}
-                                        >
-                                            <option value="">{t("Select a task...")}</option>
-                                            {availableTasks.map(task => (
-                                                <option key={task.id} value={task.id}>{task.title}</option>
-                                            ))}
-                                        </select>
+                                        availableTasks.length > 0 ? (
+                                            <select 
+                                                className="form-select"
+                                                value={newNoteParentId}
+                                                onChange={(e) => setNewNoteParentId(e.target.value)}
+                                            >
+                                                {availableTasks.map(task => (
+                                                    <option key={task.id} value={task.id}>{task.title}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <div className="alert alert-warning small py-2">
+                                                <i className="bi bi-exclamation-triangle me-2"></i>
+                                                {t("No tasks found. Click on '+ Task' to create one.")}
+                                            </div>
+                                        )
+                                    )}
+                                    
+                                    {newNoteParentType === "PROJECT" && !shell?.currentProject?.id && (
+                                        <div className="alert alert-warning small py-2 mb-2">
+                                            <i className="bi bi-exclamation-triangle me-2"></i>
+                                            {t("notes.no_project_selected_select_first")}
+                                        </div>
                                     )}
                                 </div>
                             </div>
                             <div className="modal-footer">
                                 <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>{t("Cancel")}</button>
-                                <button className="btn btn-primary" onClick={handleCreateNote}>{t("Create Note")}</button>
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={handleCreateNote}
+                                    disabled={!newNoteTitle.trim() || !newNoteParentId}
+                                >
+                                    {t("Create Note")}
+                                </button>
                             </div>
                         </div>
                     </div>
