@@ -1,13 +1,17 @@
 package com.lorenzodm.jinnlog.service.impl;
 
 import com.lorenzodm.jinnlog.api.exception.BadRequestException;
+import com.lorenzodm.jinnlog.api.exception.ResourceNotFoundException;
 import com.lorenzodm.jinnlog.service.FileStorageService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -61,7 +65,10 @@ public class LocalFileStorageService implements FileStorageService {
             String checksum = sha256(target);
 
             // path relativo (coerente con Asset.filePath)
-            String relative = "assets/" + targetName;
+            // Nota: salviamo solo il nome file o un path relativo alla root di storage
+            // Qui assumiamo che 'assets/' sia un prefisso virtuale o una sottocartella
+            // Per semplicità, salviamo il nome file come path relativo se è nella root
+            String relative = targetName; 
 
             return new StoredFile(
                     relative,
@@ -74,6 +81,28 @@ public class LocalFileStorageService implements FileStorageService {
 
         } catch (Exception e) {
             throw new IllegalStateException("Errore salvataggio file su disco", e);
+        }
+    }
+
+    @Override
+    public Resource loadAsResource(String relativePath) {
+        try {
+            Path root = Paths.get(storagePath);
+            Path file = root.resolve(relativePath).normalize();
+            
+            // Security check: prevent path traversal
+            if (!file.startsWith(root)) {
+                throw new BadRequestException("Path non valido");
+            }
+
+            Resource resource = new UrlResource(file.toUri());
+            if (resource.exists() || resource.isReadable()) {
+                return resource;
+            } else {
+                throw new ResourceNotFoundException("File non trovato o non leggibile: " + relativePath);
+            }
+        } catch (MalformedURLException e) {
+            throw new BadRequestException("Path non valido: " + e.getMessage());
         }
     }
 

@@ -219,6 +219,10 @@ export default function TaskEditorModal({
         setExistingAssets(existingAssets.filter((a) => a.id !== assetId));
     };
 
+    const handleDownloadAsset = (assetId) => {
+        jinn.assetsDownload(assetId);
+    };
+
     if (!show) return null;
 
     return (
@@ -487,13 +491,24 @@ export default function TaskEditorModal({
                                                     <i className="bi bi-file-earmark text-success"></i>
                                                     <span>{asset.fileName}</span>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-danger btn-sm"
-                                                    onClick={() => removeExistingAsset(asset.id)}
-                                                >
-                                                    <i className="bi bi-trash"></i>
-                                                </button>
+                                                <div className="d-flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-primary btn-sm"
+                                                        onClick={() => handleDownloadAsset(asset.id)}
+                                                        title={t("Download")}
+                                                    >
+                                                        <i className="bi bi-download"></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-danger btn-sm"
+                                                        onClick={() => removeExistingAsset(asset.id)}
+                                                        title={t("Delete")}
+                                                    >
+                                                        <i className="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

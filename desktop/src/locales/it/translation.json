@@ -186,7 +186,7 @@
   "Edit Task": "Modifica Task",
   "Delete Task": "Elimina Task",
   "No tasks": "Nessun task",
-  "No tasks found. Click on '+ Task' to create one.": "Nessun task trovato. Clicca su '+ Task' per crearne uno.",
+  "No tasks found. Click on '+ Task' to create one.": "Nessun task trovato. Clicca su '+ Attività' per crearne uno.",
   "Mark as complete": "Segna come completato",
   "Open Notes": "Apri Note",
   "Task Calendar": "Calendario Task",
@@ -504,5 +504,6 @@
   "more": "altro",
   "Notifications": "Notifiche",
   "Next": "Successivo",
-  "Panel": "Pannello"
+  "Panel": "Pannello",
+  "Download": "Scarica"
 }

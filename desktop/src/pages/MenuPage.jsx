@@ -57,6 +57,14 @@ export default function MenuPage({ shell }) {
         shell?.setRightPanel?.(null);
     }, [shell, showArchived, t]);
 
+    // Handle Nav Actions (e.g. from Command Palette)
+    useEffect(() => {
+        if (shell?.navAction === "openNewProjectModal") {
+            setShowNewProjectModal(true);
+            shell.clearNavAction();
+        }
+    }, [shell?.navAction, shell]);
+
     // Carica dati
     const loadData = useCallback(async () => {
         try {
@@ -88,11 +96,11 @@ export default function MenuPage({ shell }) {
             setProjects(enriched);
 
         } catch (e) {
-            toast.error("Errore caricamento progetti");
+            toast.error(t("Error loading"));
         } finally {
             setLoading(false);
         }
-    }, [showArchived]);
+    }, [showArchived, t]);
 
     useEffect(() => {
         loadData();
@@ -105,21 +113,21 @@ export default function MenuPage({ shell }) {
             setNewProjectName("");
             setNewProjectDesc("");
             setShowNewProjectModal(false);
-            toast.success("Progetto creato");
+            toast.success(t("Success"));
             loadData();
         } catch (e) {
-            toast.error("Errore creazione: " + e.message);
+            toast.error(t("Error") + ": " + e.message);
         }
     };
 
     const handleDeleteProject = async (projectId) => {
         try {
             await shell?.deleteProject?.(projectId);
-            toast.success("Progetto eliminato");
+            toast.success(t("Deleted successfully"));
             setSelectedProject(null); // Chiudi modale se aperta
             loadData();
         } catch (e) {
-            toast.error("Errore eliminazione: " + e.message);
+            toast.error(t("Deletion error") + ": " + e.message);
         }
     };
 
@@ -140,13 +148,13 @@ export default function MenuPage({ shell }) {
 
         try {
             await jinn.projectsSetArchived(project.id, newStatus);
-            toast.success(`Progetto ${newStatus ? 'archiviato' : 'riaperto'}`);
+            toast.success(t("Success"));
             loadData();
             if (selectedProject?.id === project.id) {
                 setSelectedProject(prev => ({ ...prev, archived: newStatus }));
             }
         } catch (e) {
-            toast.error(`Errore ${action} progetto: ` + e.message);
+            toast.error(t("Error") + ": " + e.message);
         }
     };
 
@@ -200,7 +208,7 @@ export default function MenuPage({ shell }) {
                                                 </li>
                                                 <li><hr className="dropdown-divider" /></li>
                                                 <li>
-                                                    <button className="dropdown-item text-danger" onClick={() => { if(confirm("Eliminare progetto?")) handleDeleteProject(project.id); }}>
+                                                    <button className="dropdown-item text-danger" onClick={() => { if(confirm(t("Delete project?"))) handleDeleteProject(project.id); }}>
                                                         <i className="bi bi-trash me-2"></i>
                                                         {t("Delete")}
                                                     </button>
@@ -210,13 +218,13 @@ export default function MenuPage({ shell }) {
                                     </div>
 
                                     <p className="card-text text-muted small mb-3 flex-grow-1" style={{ minHeight: 40 }}>
-                                        {project.description || "Nessuna descrizione"}
+                                        {project.description || t("No content")}
                                     </p>
 
                                     <div className="d-flex justify-content-between align-items-center mb-3 small">
                                         <span className="text-muted">
                                             <i className="bi bi-list-check me-1"></i>
-                                            {project.stats.done}/{project.stats.total} Task
+                                            {project.stats.done}/{project.stats.total} {t("Task")}
                                         </span>
                                         {!project.archived && project.stats.overdue > 0 && (
                                             <span className="text-danger fw-bold">
@@ -271,11 +279,11 @@ export default function MenuPage({ shell }) {
                             />
                         </div>
                         <div className="mb-3">
-                            <label className="form-label">Descrizione</label>
+                            <label className="form-label">{t("Description")}</label>
                             <textarea
                                 className="form-control"
                                 rows="3"
-                                placeholder="Descrizione opzionale..."
+                                placeholder={t("Description...")}
                                 value={newProjectDesc}
                                 onChange={(e) => setNewProjectDesc(e.target.value)}
                             ></textarea>

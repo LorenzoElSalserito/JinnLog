@@ -124,11 +124,9 @@ export default function PlannerPage({ shell }) {
                 toast.success(t("Task created"));
             }
             
-            // Upload assets se presenti
+            // Upload assets se presenti, collegandoli al task
             if (uploadedFiles && uploadedFiles.length > 0) {
-                // TODO: Implementare upload collegato al task (se supportato dal backend)
-                // Per ora carichiamo solo gli asset generici
-                await jinn.assetsUploadMultiple(uploadedFiles, `Allegato Task: ${taskData.title}`);
+                await jinn.assetsUploadMultiple(uploadedFiles, `Allegato Task: ${taskData.title}`, taskId);
             }
 
             setShowTaskModal(false);

@@ -2,6 +2,7 @@ package com.lorenzodm.jinnlog.api.controller;
 
 import com.lorenzodm.jinnlog.api.dto.response.AnalyticsResponse;
 import com.lorenzodm.jinnlog.api.dto.response.FocusHeatmapResponse;
+import com.lorenzodm.jinnlog.api.dto.response.FocusStatsResponse;
 import com.lorenzodm.jinnlog.service.AnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,5 +32,13 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "365") int range
     ) {
         return ResponseEntity.ok(analyticsService.getFocusHeatmap(userId, projectId, range));
+    }
+
+    @GetMapping("/focus-stats")
+    public ResponseEntity<FocusStatsResponse> getFocusStats(
+            @PathVariable String userId,
+            @RequestParam(defaultValue = "week") String period
+    ) {
+        return ResponseEntity.ok(analyticsService.getFocusStats(userId, period));
     }
 }

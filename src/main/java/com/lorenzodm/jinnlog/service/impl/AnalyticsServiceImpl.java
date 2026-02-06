@@ -2,6 +2,7 @@ package com.lorenzodm.jinnlog.service.impl;
 
 import com.lorenzodm.jinnlog.api.dto.response.AnalyticsResponse;
 import com.lorenzodm.jinnlog.api.dto.response.FocusHeatmapResponse;
+import com.lorenzodm.jinnlog.api.dto.response.FocusStatsResponse;
 import com.lorenzodm.jinnlog.api.dto.response.ProjectAnalyticsResponse;
 import com.lorenzodm.jinnlog.api.dto.response.TaskDeviationResponse;
 import com.lorenzodm.jinnlog.core.entity.FocusSession;
@@ -130,6 +131,34 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .toList();
 
         return new FocusHeatmapResponse(entries);
+    }
+
+    @Override
+    public FocusStatsResponse getFocusStats(String userId, String period) {
+        Instant since;
+        switch (period.toLowerCase()) {
+            case "day":
+                since = Instant.now().minus(1, ChronoUnit.DAYS);
+                break;
+            case "month":
+                since = Instant.now().minus(30, ChronoUnit.DAYS);
+                break;
+            case "year":
+                since = Instant.now().minus(365, ChronoUnit.DAYS);
+                break;
+            case "week":
+            default:
+                since = Instant.now().minus(7, ChronoUnit.DAYS);
+                break;
+        }
+
+        List<FocusSession> sessions = focusSessionRepository.findByUserIdAndStartedAtAfter(userId, since);
+
+        long totalMinutes = sessions.stream()
+                .mapToLong(s -> s.getDurationMs() / 60000)
+                .sum();
+
+        return new FocusStatsResponse(totalMinutes, sessions.size(), period);
     }
 
     private TaskDeviationResponse calculateDeviation(Task t) {

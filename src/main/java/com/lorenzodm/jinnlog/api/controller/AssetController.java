@@ -7,6 +7,8 @@ import com.lorenzodm.jinnlog.api.mapper.AssetMapper;
 import com.lorenzodm.jinnlog.core.entity.Asset;
 import com.lorenzodm.jinnlog.service.AssetService;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,9 +40,10 @@ public class AssetController {
     public ResponseEntity<AssetResponse> upload(
             @PathVariable String userId,
             @RequestPart("file") MultipartFile file,
-            @RequestPart(value = "description", required = false) String description
+            @RequestPart(value = "description", required = false) String description,
+            @RequestParam(value = "taskId", required = false) String taskId
     ) {
-        Asset created = assetService.upload(userId, file, description);
+        Asset created = assetService.upload(userId, file, description, taskId);
         return ResponseEntity.created(URI.create("/api/users/" + userId + "/assets/" + created.getId()))
                 .body(assetMapper.toResponse(created));
     }
@@ -48,6 +51,17 @@ public class AssetController {
     @GetMapping("/{assetId}")
     public ResponseEntity<AssetResponse> get(@PathVariable String userId, @PathVariable String assetId) {
         return ResponseEntity.ok(assetMapper.toResponse(assetService.getOwned(userId, assetId)));
+    }
+
+    @GetMapping("/{assetId}/download")
+    public ResponseEntity<Resource> download(@PathVariable String userId, @PathVariable String assetId) {
+        Asset asset = assetService.getOwned(userId, assetId);
+        Resource resource = assetService.download(userId, assetId);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(asset.getMimeType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + asset.getFileName() + "\"")
+                .body(resource);
     }
 
     @GetMapping

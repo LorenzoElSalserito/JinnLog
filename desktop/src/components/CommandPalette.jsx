@@ -58,7 +58,12 @@ export default function CommandPalette({ shell }) {
                 { type: "nav", label: t("Go to Calendar"), icon: "bi-calendar3", action: () => shell.navigate("calendar") },
                 { type: "nav", label: t("Go to Notes"), icon: "bi-journal-text", action: () => shell.navigate("notes") },
                 { type: "nav", label: t("Go to Settings"), icon: "bi-gear", action: () => shell.navigate("settings") },
-                { type: "action", label: t("New Project"), icon: "bi-plus-circle", action: () => { shell.navigate("menu"); /* TODO: Open modal */ } },
+                { 
+                    type: "action", 
+                    label: t("New Project"), 
+                    icon: "bi-plus-circle", 
+                    action: () => shell.navigate("menu", null, "openNewProjectModal") 
+                },
             ]);
             return;
         }

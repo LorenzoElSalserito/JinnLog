@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import Logo from "../assets/Logo.svg";
+import { useTranslation } from 'react-i18next';
 
 /**
  * LeftNav - Barra di navigazione laterale
@@ -8,12 +9,14 @@ import Logo from "../assets/Logo.svg";
  * - Navigazione tra pagine
  * - Icone Bootstrap Icons
  * - Indicatore pagina attiva
- * - Collapsibile (TODO)
+ * - Collapsibile
  * 
  * @author Lorenzo DM
  * @since 0.2.0
+ * @updated 0.8.5 - Sidebar collapsibile
  */
 export default function LeftNav({ items, activeId, onSelect }) {
+    const { t } = useTranslation();
     const [collapsed, setCollapsed] = useState(false);
 
     // Filtra items visibili (nasconde settings dalla nav principale)
@@ -65,7 +68,7 @@ export default function LeftNav({ items, activeId, onSelect }) {
                 <button
                     className="jl-collapse-btn"
                     onClick={() => setCollapsed(!collapsed)}
-                    title={collapsed ? "Espandi" : "Comprimi"}
+                    title={collapsed ? t("More") : t("Less")}
                 >
                     <i className={`bi ${collapsed ? "bi-chevron-right" : "bi-chevron-left"}`}></i>
                 </button>

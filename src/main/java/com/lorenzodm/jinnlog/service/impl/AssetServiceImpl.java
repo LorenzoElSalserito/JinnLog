@@ -5,12 +5,15 @@ import com.lorenzodm.jinnlog.api.dto.request.UpdateAssetRequest;
 import com.lorenzodm.jinnlog.api.exception.ResourceNotFoundException;
 import com.lorenzodm.jinnlog.api.exception.OwnershipViolationException;
 import com.lorenzodm.jinnlog.core.entity.Asset;
+import com.lorenzodm.jinnlog.core.entity.Task;
 import com.lorenzodm.jinnlog.core.entity.User;
 import com.lorenzodm.jinnlog.repository.AssetRepository;
+import com.lorenzodm.jinnlog.repository.TaskRepository;
 import com.lorenzodm.jinnlog.repository.UserRepository;
 import com.lorenzodm.jinnlog.service.AssetService;
 import com.lorenzodm.jinnlog.service.FileStorageService;
 import jakarta.transaction.Transactional;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,11 +26,13 @@ public class AssetServiceImpl implements AssetService {
 
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository;
     private final FileStorageService fileStorageService;
 
-    public AssetServiceImpl(AssetRepository assetRepository, UserRepository userRepository, FileStorageService fileStorageService) {
+    public AssetServiceImpl(AssetRepository assetRepository, UserRepository userRepository, TaskRepository taskRepository, FileStorageService fileStorageService) {
         this.assetRepository = assetRepository;
         this.userRepository = userRepository;
+        this.taskRepository = taskRepository;
         this.fileStorageService = fileStorageService;
     }
 
@@ -51,6 +56,11 @@ public class AssetServiceImpl implements AssetService {
 
     @Override
     public Asset upload(String userId, MultipartFile file, String description) {
+        return upload(userId, file, description, null);
+    }
+
+    @Override
+    public Asset upload(String userId, MultipartFile file, String description, String taskId) {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User non trovato: " + userId));
 
@@ -64,6 +74,13 @@ public class AssetServiceImpl implements AssetService {
         a.setChecksum(stored.checksumSha256());
         a.setDescription(description);
         a.setOwner(owner);
+
+        if (taskId != null && !taskId.isBlank()) {
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Task non trovato: " + taskId));
+            // Optional: check task ownership/access
+            a.setTask(task);
+        }
 
         return assetRepository.save(a);
     }
@@ -79,6 +96,12 @@ public class AssetServiceImpl implements AssetService {
 
         a.markAsAccessed();
         return assetRepository.save(a);
+    }
+
+    @Override
+    public Resource download(String userId, String assetId) {
+        Asset asset = getOwned(userId, assetId);
+        return fileStorageService.loadAsResource(asset.getFilePath());
     }
 
     @Override

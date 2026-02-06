@@ -1,5 +1,5 @@
 /**
- * JinnLog API Client v0.7.2
+ * JinnLog API Client v0.7.4
  *
  * This module handles all communication with the Java backend.
  * It works in both Electron (desktop) and browser (web) modes.
@@ -24,7 +24,7 @@
  * @module jinn
  * @author Lorenzo DM
  * @since 0.2.0
- * @updated 0.7.2 - Fixed preference parsing
+ * @updated 0.7.4 - Added taskId support for asset upload
  */
 
 // ========================================
@@ -921,6 +921,14 @@ export const jinn = {
         return apiRequest(`${basePath}/analytics/focus-heatmap${queryString ? '?' + queryString : ''}`);
     },
 
+    /**
+     * Focus statistics by period.
+     */
+    focusStats: (period = 'week') => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/analytics/focus-stats?period=${period}`);
+    },
+
     // ========================================
     // Notifications API (v0.7.0)
     // Endpoint: /api/notifications
@@ -1068,15 +1076,6 @@ export const jinn = {
         return apiRequest(`${basePath}/focus-sessions${queryString ? '?' + queryString : ''}`);
     },
 
-    /**
-     * Focus statistics by period (TODO: implement backend side).
-     */
-    focusStats: (period = 'week') => {
-        // TODO: This endpoint does not exist in the backend yet
-        console.warn('[JinnLog API] focusStats non ancora implementato nel backend');
-        return Promise.resolve({ totalMinutes: 0, sessionsCount: 0, period });
-    },
-
     // ========================================
     // User Settings API (v0.2.0)
     // Endpoint: /api/settings (uses @CurrentUser from X-User-Id header)
@@ -1126,13 +1125,16 @@ export const jinn = {
     /**
      * Uploads an asset.
      */
-    assetsUpload: async (file, description = null) => {
+    assetsUpload: async (file, description = null, taskId = null) => {
         const baseUrl = await getApiUrl();
         const basePath = getUserBasePath();
         const formData = new FormData();
         formData.append('file', file);
         if (description) {
             formData.append('description', description);
+        }
+        if (taskId) {
+            formData.append('taskId', taskId);
         }
 
         const response = await fetch(`${baseUrl}${basePath}/assets/upload`, {
@@ -1156,11 +1158,11 @@ export const jinn = {
     /**
      * Multiple asset upload.
      */
-    assetsUploadMultiple: async (files, description = null) => {
+    assetsUploadMultiple: async (files, description = null, taskId = null) => {
         const results = [];
         for (const file of files) {
             try {
-                const result = await jinn.assetsUpload(file, description);
+                const result = await jinn.assetsUpload(file, description, taskId);
                 results.push(result);
             } catch (e) {
                 console.error('[JinnLog API] Errore upload file:', file.name, e);
@@ -1191,12 +1193,15 @@ export const jinn = {
     },
 
     /**
-     * Downloads an asset (TODO: implement download endpoint in backend).
+     * Downloads an asset.
      */
     assetsDownload: async (assetId) => {
-        console.warn('[JinnLog API] assetsDownload: endpoint da implementare nel backend');
-        // For now, returns only metadata
-        return jinn.assetsGet(assetId);
+        const baseUrl = await getApiUrl();
+        const basePath = getUserBasePath();
+        const url = `${baseUrl}${basePath}/assets/${assetId}/download`;
+        
+        // Trigger download in browser
+        window.open(url, '_blank');
     },
 
     // ========================================

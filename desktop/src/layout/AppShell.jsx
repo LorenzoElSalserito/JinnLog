@@ -69,6 +69,7 @@ export default function AppShell({ initialUser, onLogout }) {
 
     const [activeId, setActiveId] = useState("dashboard");
     const [navContext, setNavContext] = useState(null); // Context for navigation (e.g., taskId for Notes)
+    const [navAction, setNavAction] = useState(null); // Action to perform after navigation (e.g., openModal)
 
     const activePage = useMemo(() => PAGES.find((p) => p.id === activeId) ?? PAGES[0], [PAGES, activeId]);
 
@@ -345,11 +346,14 @@ export default function AppShell({ initialUser, onLogout }) {
         setRightPanel,
         setRightPanelOpen,
         setProfileMenuItems: setProfileItems,
-        navigate: (pageId, context = null) => {
+        navigate: (pageId, context = null, action = null) => {
             setActiveId(pageId);
             setNavContext(context);
+            setNavAction(action);
         },
         navContext, // Exposes context to current page
+        navAction, // Exposes action to current page
+        clearNavAction: () => setNavAction(null), // Clears action after consumption
         resetSlots: () => {
             setHeaderActions(null);
             setRightPanel(null);
@@ -395,7 +399,7 @@ export default function AppShell({ initialUser, onLogout }) {
 
         // Logout callback
         logout: onLogout,
-    }), [currentUser, currentProject, projects, currentTheme, onLogout, navContext]);
+    }), [currentUser, currentProject, projects, currentTheme, onLogout, navContext, navAction]);
 
     // ========================================
     // Effect - Update title on page change
@@ -499,6 +503,7 @@ export default function AppShell({ initialUser, onLogout }) {
                         onSelect={(id) => {
                             setActiveId(id);
                             setNavContext(null); // Reset context on manual nav
+                            setNavAction(null); // Reset action on manual nav
                         }}
                     />
 

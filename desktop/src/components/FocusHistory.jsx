@@ -32,10 +32,25 @@ export default function FocusHistory({ selectedTask }) {
     const [sessionsTask, setSessionsTask] = useState([]);
     const [sessionsAll, setSessionsAll] = useState([]);
     const [running, setRunning] = useState(null);
+    const [stats, setStats] = useState({ today: 0, week: 0 });
 
     async function refresh() {
         const r = await jinn.focusRunning();
         setRunning(r);
+
+        // Carica statistiche reali dal backend
+        try {
+            const [todayStats, weekStats] = await Promise.all([
+                jinn.focusStats('day'),
+                jinn.focusStats('week')
+            ]);
+            setStats({
+                today: todayStats.totalMinutes * 60000, // Converti in ms per coerenza
+                week: weekStats.totalMinutes * 60000
+            });
+        } catch (e) {
+            console.error("Errore caricamento statistiche focus:", e);
+        }
 
         if (!selectedTask) {
             setSessionsTask([]);
@@ -55,15 +70,15 @@ export default function FocusHistory({ selectedTask }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTask?.id]);
 
-    // refresh â€œsoftâ€ mentre un timer Ã¨ attivo (per vedere aggiornarsi i totali di oggi)
+    // refresh “soft” mentre un timer è attivo (per vedere aggiornarsi i totali di oggi)
     useEffect(() => {
         let t = null;
-        t = setInterval(() => refresh(), 2000);
+        t = setInterval(() => refresh(), 5000); // Refresh meno aggressivo (5s)
         return () => clearInterval(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const stats = useMemo(() => {
+    const taskStats = useMemo(() => {
         const now = Date.now();
         const today0 = startOfTodayMs();
 
@@ -74,13 +89,8 @@ export default function FocusHistory({ selectedTask }) {
             0
         );
 
-        const todayAll = sessionsAll.reduce(
-            (sum, s) => sum + overlapMs(s, today0, now),
-            0
-        );
-
-        return { taskTotal, taskToday, todayAll };
-    }, [sessionsTask, sessionsAll]);
+        return { taskTotal, taskToday };
+    }, [sessionsTask]);
 
     return (
         <div className="card bg-black text-light border-secondary">
@@ -105,21 +115,21 @@ export default function FocusHistory({ selectedTask }) {
                             <div className="col-6">
                                 <div className="p-2 border border-secondary rounded bg-dark">
                                     <div className="text-secondary small">{t("Task total")}</div>
-                                    <div className="fw-bold">{formatMs(stats.taskTotal)}</div>
+                                    <div className="fw-bold">{formatMs(taskStats.taskTotal)}</div>
                                 </div>
                             </div>
 
                             <div className="col-6">
                                 <div className="p-2 border border-secondary rounded bg-dark">
                                     <div className="text-secondary small">{t("Task today")}</div>
-                                    <div className="fw-bold">{formatMs(stats.taskToday)}</div>
+                                    <div className="fw-bold">{formatMs(taskStats.taskToday)}</div>
                                 </div>
                             </div>
 
                             <div className="col-12">
                                 <div className="p-2 border border-secondary rounded bg-dark">
                                     <div className="text-secondary small">{t("Today total (all tasks)")}</div>
-                                    <div className="fw-bold">{formatMs(stats.todayAll)}</div>
+                                    <div className="fw-bold">{formatMs(stats.today)}</div>
                                 </div>
                             </div>
                         </div>
@@ -148,7 +158,7 @@ export default function FocusHistory({ selectedTask }) {
                                                     <div className="text-secondary small text-truncate">{start}</div>
                                                     <div className="fw-bold">{formatMs(s.durationMs)}</div>
                                                 </div>
-                                                <div className="text-secondary small text-truncate">â†’ {end}</div>
+                                                <div className="text-secondary small text-truncate">→ {end}</div>
                                             </div>
                                         );
                                     })}
