@@ -62,6 +62,7 @@ jobs:
       # Generazione JRE Custom con jlink
       # Includiamo i moduli standard necessari per Spring Boot + JDBC + Security
       - name: Generate Custom JRE
+        shell: bash
         run: |
           jlink \
           --add-modules java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql,java.xml,jdk.unsupported,jdk.crypto.ec,jdk.localedata \
