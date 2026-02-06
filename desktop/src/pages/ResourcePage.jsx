@@ -3,8 +3,10 @@ import { jinn } from '../api/jinn';
 import { toast } from 'react-toastify';
 import { Tooltip } from 'react-tooltip';
 import PortalModal from '../components/PortalModal.jsx';
+import { useTranslation } from 'react-i18next';
 
 const ResourcePage = ({ shell }) => {
+    const { t, i18n } = useTranslation();
     const [projects, setProjects] = useState([]);
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [allocations, setAllocations] = useState([]);
@@ -20,9 +22,9 @@ const ResourcePage = ({ shell }) => {
     const [userTasks, setUserTasks] = useState([]);
 
     useEffect(() => {
-        shell?.setTitle?.("Risorse & Carico");
+        shell?.setTitle?.(t("Resources & Workload"));
         loadProjects();
-    }, []);
+    }, [shell, t]);
 
     useEffect(() => {
         if (selectedProjectId) {
@@ -40,7 +42,7 @@ const ResourcePage = ({ shell }) => {
                 setSelectedProjectId(list[0].id);
             }
         } catch (e) {
-            toast.error("Errore caricamento progetti");
+            toast.error(t("Error loading"));
         } finally {
             setLoading(false);
         }
@@ -58,7 +60,7 @@ const ResourcePage = ({ shell }) => {
 
         } catch (e) {
             console.error(e);
-            toast.error("Errore caricamento risorse");
+            toast.error(t("Error loading"));
         } finally {
             setLoading(false);
         }
@@ -97,33 +99,33 @@ const ResourcePage = ({ shell }) => {
 
             setUserTasks(filtered);
         } catch (e) {
-            toast.error("Errore caricamento dettagli task");
+            toast.error(t("Error loading"));
         }
     };
 
     const handleUnassignTask = async (taskId) => {
-        if (!confirm("Rimuovere assegnazione?")) return;
+        if (!confirm(t("Confirm"))) return;
         try {
             await jinn.tasksUpdate(selectedProjectId, taskId, { assignedToId: "" });
-            toast.success("Task disassegnato");
+            toast.success(t("Success"));
             setShowTaskModal(false);
             loadAllocations();
         } catch (e) {
-            toast.error("Errore aggiornamento task");
+            toast.error(t("Update error"));
         }
     };
 
     const handleRemoveMember = async () => {
         if (!selectedUser || !selectedProjectId) return;
-        if (!confirm(`Rimuovere ${selectedUser.name} dal progetto?`)) return;
+        if (!confirm(`${t("Remove")} ${selectedUser.name}?`)) return;
 
         try {
             await jinn.projectMembersRemove(selectedProjectId, selectedUser.id);
-            toast.success("Membro rimosso");
+            toast.success(t("Deleted successfully"));
             setShowMemberModal(false);
             loadAllocations();
         } catch (e) {
-            toast.error("Errore rimozione membro: " + e.message);
+            toast.error(t("Deletion error") + ": " + e.message);
         }
     };
 
@@ -175,10 +177,10 @@ const ResourcePage = ({ shell }) => {
                         value={rangeDays}
                         onChange={(e) => setRangeDays(parseInt(e.target.value))}
                     >
-                        <option value="7">7 giorni</option>
-                        <option value="14">14 giorni</option>
-                        <option value="21">21 giorni</option>
-                        <option value="30">30 giorni</option>
+                        <option value="7">{t("7 days")}</option>
+                        <option value="14">{t("14 days")}</option>
+                        <option value="21">{t("21 days")}</option>
+                        <option value="30">{t("30 days")}</option>
                     </select>
                 </div>
             </div>
@@ -189,10 +191,10 @@ const ResourcePage = ({ shell }) => {
                     <table className="table table-bordered mb-0" style={{ minWidth: 800 }}>
                         <thead className="bg-light">
                         <tr>
-                            <th style={{ width: 200, minWidth: 200 }} className="ps-4 py-3">Membro</th>
+                            <th style={{ width: 200, minWidth: 200 }} className="ps-4 py-3">{t("Member")}</th>
                             {dates.map(d => (
                                 <th key={d.toISOString()} className="text-center small py-3" style={{ width: 100, minWidth: 100 }}>
-                                    <div className="fw-bold">{d.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
+                                    <div className="fw-bold">{d.toLocaleDateString(i18n.language, { weekday: 'short' })}</div>
                                     <div className="text-muted">{d.getDate()}</div>
                                 </th>
                             ))}
@@ -202,7 +204,7 @@ const ResourcePage = ({ shell }) => {
                         {allocations.length === 0 ? (
                             <tr>
                                 <td colSpan={dates.length + 1} className="text-center py-5 text-muted">
-                                    Nessun dato disponibile per il periodo selezionato.
+                                    {t("No data available...")}
                                 </td>
                             </tr>
                         ) : (
@@ -235,7 +237,7 @@ const ResourcePage = ({ shell }) => {
                                                     <div
                                                         className="rounded p-1"
                                                         data-tooltip-id="resource-tooltip"
-                                                        data-tooltip-content={`${hours} ore stimate`}
+                                                        data-tooltip-content={`${hours} ${t("estimated hours")}`}
                                                     >
                                                         {hours}h
                                                     </div>
@@ -255,15 +257,15 @@ const ResourcePage = ({ shell }) => {
             <div className="d-flex gap-3 mt-3 small text-muted">
                 <div className="d-flex align-items-center gap-1">
                     <div className="rounded bg-success-subtle border border-success-subtle" style={{width: 16, height: 16}}></div>
-                    <span>Ottimale (≤ 4h)</span>
+                    <span>{t("Optimal")}</span>
                 </div>
                 <div className="d-flex align-items-center gap-1">
                     <div className="rounded bg-warning-subtle border border-warning-subtle" style={{width: 16, height: 16}}></div>
-                    <span>Pieno (4h - 8h)</span>
+                    <span>{t("Full")}</span>
                 </div>
                 <div className="d-flex align-items-center gap-1">
                     <div className="rounded bg-danger-subtle border border-danger-subtle" style={{width: 16, height: 16}}></div>
-                    <span>Overload (&gt; 8h)</span>
+                    <span>{t("Overload")}</span>
                 </div>
             </div>
 
@@ -271,16 +273,16 @@ const ResourcePage = ({ shell }) => {
             {showTaskModal && (
                 <PortalModal onClick={() => setShowTaskModal(false)}>
                     <div className="modal-header">
-                        <h5 className="modal-title">Task: {selectedUser?.name}</h5>
+                        <h5 className="modal-title">{t("Task")}: {selectedUser?.name}</h5>
                         <button type="button" className="btn-close" onClick={() => setShowTaskModal(false)}></button>
                     </div>
                     <div className="modal-body">
                         <p className="text-muted small mb-3">
-                            Giorno: <strong>{new Date(selectedDate).toLocaleDateString()}</strong>
+                            {t("Day:")} <strong>{new Date(selectedDate).toLocaleDateString()}</strong>
                         </p>
 
                         {userTasks.length === 0 ? (
-                            <div className="text-center text-muted py-3">Nessun task assegnato in questa data.</div>
+                            <div className="text-center text-muted py-3">{t("No tasks assigned...")}</div>
                         ) : (
                             <div className="list-group">
                                 {userTasks.map(task => (
@@ -288,13 +290,13 @@ const ResourcePage = ({ shell }) => {
                                         <div>
                                             <div className="fw-bold">{task.title}</div>
                                             <small className="text-muted">
-                                                {task.estimatedMinutes ? `${task.estimatedMinutes} min` : 'Nessuna stima'}
+                                                {task.estimatedMinutes ? `${task.estimatedMinutes} ${t("min")}` : t("Not set")}
                                             </small>
                                         </div>
                                         <button
                                             className="btn btn-sm btn-outline-danger"
                                             onClick={() => handleUnassignTask(task.id)}
-                                            title="Rimuovi assegnazione"
+                                            title={t("Remove assignment")}
                                         >
                                             <i className="bi bi-person-x"></i>
                                         </button>
@@ -304,7 +306,7 @@ const ResourcePage = ({ shell }) => {
                         )}
                     </div>
                     <div className="modal-footer">
-                        <button className="btn btn-secondary" onClick={() => setShowTaskModal(false)}>Chiudi</button>
+                        <button className="btn btn-secondary" onClick={() => setShowTaskModal(false)}>{t("Close")}</button>
                     </div>
                 </PortalModal>
             )}
@@ -313,14 +315,14 @@ const ResourcePage = ({ shell }) => {
             {showMemberModal && (
                 <PortalModal onClick={() => setShowMemberModal(false)}>
                     <div className="modal-header">
-                        <h5 className="modal-title">Gestione Membro: {selectedUser?.name}</h5>
+                        <h5 className="modal-title">{t("Member Management:")} {selectedUser?.name}</h5>
                         <button type="button" className="btn-close" onClick={() => setShowMemberModal(false)}></button>
                     </div>
                     <div className="modal-body">
                         <div className="d-flex flex-column gap-3">
                             <div className="alert alert-light border">
-                                <div className="fw-bold mb-1">Dettagli</div>
-                                <div className="small text-muted">ID: {selectedUser?.id}</div>
+                                <div className="fw-bold mb-1">{t("Details")}</div>
+                                <div className="small text-muted">{t("ID:")} {selectedUser?.id}</div>
                             </div>
 
                             <button
@@ -328,12 +330,12 @@ const ResourcePage = ({ shell }) => {
                                 onClick={handleRemoveMember}
                             >
                                 <i className="bi bi-person-dash me-2"></i>
-                                Rimuovi dal Progetto
+                                {t("Remove from Project")}
                             </button>
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button className="btn btn-secondary" onClick={() => setShowMemberModal(false)}>Chiudi</button>
+                        <button className="btn btn-secondary" onClick={() => setShowMemberModal(false)}>{t("Close")}</button>
                     </div>
                 </PortalModal>
             )}

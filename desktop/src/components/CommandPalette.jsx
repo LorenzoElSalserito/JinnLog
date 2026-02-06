@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { jinn } from "../api/jinn.js";
+import { useTranslation } from 'react-i18next';
 
 /**
  * CommandPalette - Barra di comando globale (Ctrl+K)
@@ -13,6 +14,7 @@ import { jinn } from "../api/jinn.js";
  * @since 0.4.5
  */
 export default function CommandPalette({ shell }) {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -49,14 +51,14 @@ export default function CommandPalette({ shell }) {
         if (!query) {
             // Default: Navigazione
             setResults([
-                { type: "nav", label: "Vai a Dashboard", icon: "bi-speedometer2", action: () => shell.navigate("dashboard") },
-                { type: "nav", label: "Vai a Progetti", icon: "bi-folder2-open", action: () => shell.navigate("menu") },
-                { type: "nav", label: "Vai a Planner", icon: "bi-table", action: () => shell.navigate("planner") },
-                { type: "nav", label: "Vai a Kanban", icon: "bi-kanban", action: () => shell.navigate("kanban") },
-                { type: "nav", label: "Vai a Calendario", icon: "bi-calendar3", action: () => shell.navigate("calendar") },
-                { type: "nav", label: "Vai a Note", icon: "bi-journal-text", action: () => shell.navigate("notes") },
-                { type: "nav", label: "Vai a Impostazioni", icon: "bi-gear", action: () => shell.navigate("settings") },
-                { type: "action", label: "Nuovo Progetto", icon: "bi-plus-circle", action: () => { shell.navigate("menu"); /* TODO: Open modal */ } },
+                { type: "nav", label: t("Go to Dashboard"), icon: "bi-speedometer2", action: () => shell.navigate("dashboard") },
+                { type: "nav", label: t("Go to Projects"), icon: "bi-folder2-open", action: () => shell.navigate("menu") },
+                { type: "nav", label: t("Go to Planner"), icon: "bi-table", action: () => shell.navigate("planner") },
+                { type: "nav", label: t("Go to Kanban"), icon: "bi-kanban", action: () => shell.navigate("kanban") },
+                { type: "nav", label: t("Go to Calendar"), icon: "bi-calendar3", action: () => shell.navigate("calendar") },
+                { type: "nav", label: t("Go to Notes"), icon: "bi-journal-text", action: () => shell.navigate("notes") },
+                { type: "nav", label: t("Go to Settings"), icon: "bi-gear", action: () => shell.navigate("settings") },
+                { type: "action", label: t("New Project"), icon: "bi-plus-circle", action: () => { shell.navigate("menu"); /* TODO: Open modal */ } },
             ]);
             return;
         }
@@ -66,10 +68,10 @@ export default function CommandPalette({ shell }) {
 
         // 1. Comandi Navigazione
         const navs = [
-            { type: "nav", label: "Vai a Dashboard", icon: "bi-speedometer2", action: () => shell.navigate("dashboard") },
-            { type: "nav", label: "Vai a Planner", icon: "bi-table", action: () => shell.navigate("planner") },
-            { type: "nav", label: "Vai a Kanban", icon: "bi-kanban", action: () => shell.navigate("kanban") },
-            { type: "nav", label: "Vai a Note", icon: "bi-journal-text", action: () => shell.navigate("notes") },
+            { type: "nav", label: t("Go to Dashboard"), icon: "bi-speedometer2", action: () => shell.navigate("dashboard") },
+            { type: "nav", label: t("Go to Planner"), icon: "bi-table", action: () => shell.navigate("planner") },
+            { type: "nav", label: t("Go to Kanban"), icon: "bi-kanban", action: () => shell.navigate("kanban") },
+            { type: "nav", label: t("Go to Notes"), icon: "bi-journal-text", action: () => shell.navigate("notes") },
         ];
         filtered.push(...navs.filter(n => n.label.toLowerCase().includes(lowerQuery)));
 
@@ -80,7 +82,7 @@ export default function CommandPalette({ shell }) {
              // Placeholder per ricerca task
              filtered.push({ 
                  type: "search", 
-                 label: `Cerca "${query}" nei task...`, 
+                 label: `${t("Search")} "${query}"...`, 
                  icon: "bi-search", 
                  action: () => {
                      shell.navigate("planner");
@@ -92,7 +94,7 @@ export default function CommandPalette({ shell }) {
         setResults(filtered);
         setSelectedIndex(0);
 
-    }, [query, shell]);
+    }, [query, shell, t]);
 
     // Navigazione tastiera nella lista
     const handleInputKeyDown = (e) => {
@@ -122,7 +124,7 @@ export default function CommandPalette({ shell }) {
                         ref={inputRef}
                         type="text"
                         className="cmd-input"
-                        placeholder="Cerca o digita un comando..."
+                        placeholder={t("Search or type a command...")}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleInputKeyDown}
@@ -131,7 +133,7 @@ export default function CommandPalette({ shell }) {
                 </div>
                 <div className="cmd-body">
                     {results.length === 0 ? (
-                        <div className="p-3 text-center text-muted small">Nessun risultato</div>
+                        <div className="p-3 text-center text-muted small">{t("No results")}</div>
                     ) : (
                         <ul className="list-group list-group-flush">
                             {results.map((item, index) => (
@@ -147,7 +149,7 @@ export default function CommandPalette({ shell }) {
                                 >
                                     <i className={`bi ${item.icon} me-3`}></i>
                                     <span>{item.label}</span>
-                                    {item.type === "nav" && <span className="ms-auto small text-muted">Vai</span>}
+                                    {item.type === "nav" && <span className="ms-auto small text-muted">{t("Go")}</span>}
                                 </li>
                             ))}
                         </ul>

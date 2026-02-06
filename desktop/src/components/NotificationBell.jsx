@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { jinn } from '../api/jinn';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 
 export default function NotificationBell() {
+    const { t } = useTranslation();
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -66,7 +68,7 @@ export default function NotificationBell() {
             setNotifications(prev => prev.filter(n => n.id !== id));
             setUnreadCount(prev => Math.max(0, prev - 1));
         } catch (e) {
-            toast.error("Errore aggiornamento notifica");
+            toast.error(t("Error"));
         }
     };
 
@@ -76,9 +78,9 @@ export default function NotificationBell() {
             setNotifications([]);
             setUnreadCount(0);
             setIsOpen(false);
-            toast.success("Tutte le notifiche segnate come lette");
+            toast.success(t("All notifications marked as read"));
         } catch (e) {
-            toast.error("Errore aggiornamento notifiche");
+            toast.error(t("Error"));
         }
     };
 
@@ -98,13 +100,13 @@ export default function NotificationBell() {
     const getNotificationTitle = (type) => {
         switch (type) {
             case 'NEW_NOTE':
-                return 'Nuovo commento';
+                return t("New comment");
             case 'CONNECTION_REQUEST':
-                return 'Richiesta di connessione';
+                return t("Incoming Requests");
             case 'CONNECTION_ACCEPTED':
-                return 'Connessione accettata';
+                return t("Success");
             default:
-                return 'Notifica';
+                return t("Notification");
         }
     };
 
@@ -113,7 +115,7 @@ export default function NotificationBell() {
             <button 
                 className="btn btn-link text-dark position-relative p-2" 
                 onClick={toggleDropdown}
-                title="Notifiche"
+                title={t("Notifications")}
             >
                 <i className="bi bi-bell fs-5"></i>
                 {unreadCount > 0 && (
@@ -126,18 +128,18 @@ export default function NotificationBell() {
             {isOpen && (
                 <div className="card shadow position-absolute end-0 mt-2" style={{ width: '320px', zIndex: 1050, maxHeight: '400px', overflow: 'hidden' }}>
                     <div className="card-header bg-white d-flex justify-content-between align-items-center py-2">
-                        <h6 className="mb-0 fw-bold small">Notifiche</h6>
+                        <h6 className="mb-0 fw-bold small">{t("Notifications")}</h6>
                         {notifications.length > 0 && (
                             <button className="btn btn-link btn-sm p-0 text-decoration-none small" onClick={markAllRead}>
-                                Segna tutte lette
+                                {t("Mark all as read")}
                             </button>
                         )}
                     </div>
                     <div className="list-group list-group-flush overflow-auto" style={{ maxHeight: '350px' }}>
                         {loading ? (
-                            <div className="p-3 text-center text-muted small">Caricamento...</div>
+                            <div className="p-3 text-center text-muted small">{t("Loading...")}</div>
                         ) : notifications.length === 0 ? (
-                            <div className="p-3 text-center text-muted small">Nessuna nuova notifica</div>
+                            <div className="p-3 text-center text-muted small">{t("No new notifications")}</div>
                         ) : (
                             notifications.map(n => (
                                 <div key={n.id} className="list-group-item list-group-item-action p-3">
@@ -153,7 +155,7 @@ export default function NotificationBell() {
                                     <p className="mb-1 small text-break ps-4">{n.message}</p>
                                     <div className="mt-2 text-end">
                                         <button className="btn btn-sm btn-outline-secondary py-0 px-2" style={{fontSize: '0.7rem'}} onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }}>
-                                            Segna letta
+                                            {t("Mark as read")}
                                         </button>
                                     </div>
                                 </div>

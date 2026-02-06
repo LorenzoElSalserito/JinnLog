@@ -1,16 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import StatusPill from "./StatusPill.jsx";
 import PriorityPill from "./PriorityPill.jsx";
-
-const COLS = [
-    { key: "title", label: "Task" },
-    { key: "asset", label: "Asset" },
-    { key: "status", label: "Status" },
-    { key: "priority", label: "Priority" },
-    { key: "deadline", label: "Deadline" },
-    { key: "owner", label: "Owner" },
-    { key: "notes", label: "Notes" },
-];
+import { useTranslation } from 'react-i18next';
 
 function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));
@@ -23,6 +14,7 @@ export default function PlannerTable({
                                          onActiveCellChange,
                                          readOnlyEmpty = false,
                                      }) {
+    const { t } = useTranslation();
     const [localActive, setLocalActive] = useState({ rowIndex: 0, colKey: "title" });
 
     const effActive = activeCell ?? localActive;
@@ -30,11 +22,21 @@ export default function PlannerTable({
 
     const refs = useRef({}); // key = `${rowId}:${colKey}` -> element
 
+    const COLS = useMemo(() => [
+        { key: "title", label: t("Task") },
+        { key: "asset", label: t("Asset") },
+        { key: "status", label: t("Status") },
+        { key: "priority", label: t("Priority") },
+        { key: "deadline", label: t("Deadline") },
+        { key: "owner", label: t("Owner") },
+        { key: "notes", label: t("Notes") },
+    ], [t]);
+
     const colIndexByKey = useMemo(() => {
         const m = {};
         COLS.forEach((c, i) => (m[c.key] = i));
         return m;
-    }, []);
+    }, [COLS]);
 
     function setRef(rowId, colKey, el) {
         if (!rowId || !colKey) return;
@@ -153,13 +155,13 @@ export default function PlannerTable({
             <table className="table table-bordered align-middle mb-0">
                 <thead className="jl-table-head">
                 <tr>
-                    <th style={{ width: 240 }}>Task</th>
-                    <th style={{ width: 90 }}>Asset</th>
-                    <th style={{ width: 220 }}>Status</th>
-                    <th style={{ width: 220 }}>Priority</th>
-                    <th style={{ width: 150 }}>Deadline</th>
-                    <th style={{ width: 140 }}>Owner</th>
-                    <th>Notes</th>
+                    <th style={{ width: 240 }}>{t("Task")}</th>
+                    <th style={{ width: 90 }}>{t("Asset")}</th>
+                    <th style={{ width: 220 }}>{t("Status")}</th>
+                    <th style={{ width: 220 }}>{t("Priority")}</th>
+                    <th style={{ width: 150 }}>{t("Deadline")}</th>
+                    <th style={{ width: 140 }}>{t("Owner")}</th>
+                    <th>{t("Notes")}</th>
                 </tr>
                 </thead>
 
@@ -178,7 +180,7 @@ export default function PlannerTable({
                                 <input
                                     ref={(el) => setRef(r.id, "title", el)}
                                     className="jl-cell-input"
-                                    placeholder={emptyLike ? "" : "Task title"}
+                                    placeholder={emptyLike ? "" : t("Task title")}
                                     value={r.title}
                                     disabled={disabled}
                                     onFocus={() => setActive({ rowIndex: idx, colKey: "title" })}
@@ -199,7 +201,7 @@ export default function PlannerTable({
                                     onFocus={() => setActive({ rowIndex: idx, colKey: "asset" })}
                                     onKeyDown={handleKeyNav}
                                     disabled={disabled}
-                                    title="Asset (UI placeholder)"
+                                    title={t("Asset (UI placeholder)")}
                                 >
                                     {r.assetUrl ? (
                                         <img className="jl-thumb" src={r.assetUrl} alt="asset" />
@@ -294,7 +296,7 @@ export default function PlannerTable({
                                     ref={(el) => setRef(r.id, "notes", el)}
                                     className="form-control form-control-sm border-0"
                                     style={{ padding: "8px 10px", background: "transparent" }}
-                                    placeholder={emptyLike ? "" : "Add here"}
+                                    placeholder={emptyLike ? "" : t("Add here")}
                                     value={r.notes}
                                     disabled={disabled}
                                     onFocus={() => setActive({ rowIndex: idx, colKey: "notes" })}
@@ -309,7 +311,7 @@ export default function PlannerTable({
             </table>
 
             <div className="p-2 small jl-muted">
-                Navigazione: <b>TAB</b>/<b>SHIFT+TAB</b> tra celle â€¢ <b>ENTER</b> giÃ¹ â€¢ <b>CTRL+â†/â†’</b> tra celle â€¢ frecce su/giÃ¹ per righe
+                {t("Navigation: TAB/SHIFT+TAB...")}
             </div>
         </div>
     );

@@ -3,6 +3,7 @@ import { Modal, Button, Form, Badge, ListGroup, InputGroup } from "react-bootstr
 import { FiPlus, FiEdit2, FiTrash2, FiTag, FiSearch } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { jinn } from "../api/jinn.js";
+import { useTranslation } from 'react-i18next';
 
 /**
  * TagManager - Componente per gestione tag
@@ -19,6 +20,7 @@ import { jinn } from "../api/jinn.js";
  * @since 0.2.0
  */
 export default function TagManager({ show, onHide }) {
+    const { t } = useTranslation();
     const [tags, setTags] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [newTagName, setNewTagName] = useState("");
@@ -53,7 +55,7 @@ export default function TagManager({ show, onHide }) {
             setTags(data);
         } catch (error) {
             console.error("Errore caricamento tag:", error);
-            toast.error("Errore durante il caricamento dei tag");
+            toast.error(t("Error loading"));
         } finally {
             setIsLoading(false);
         }
@@ -61,19 +63,19 @@ export default function TagManager({ show, onHide }) {
 
     const handleCreateTag = async () => {
         if (!newTagName.trim()) {
-            toast.error("Inserisci un nome per il tag");
+            toast.error(t("Error"));
             return;
         }
 
         try {
             await jinn.tagsCreate(newTagName.trim(), newTagColor);
-            toast.success("Tag creato!");
+            toast.success(t("Success"));
             setNewTagName("");
             setNewTagColor("#3cb6ff");
             await loadTags();
         } catch (error) {
             console.error("Errore creazione tag:", error);
-            toast.error("Errore durante la creazione del tag");
+            toast.error(t("Error"));
         }
     };
 
@@ -85,28 +87,28 @@ export default function TagManager({ show, onHide }) {
                 name: editingTag.name,
                 color: editingTag.color,
             });
-            toast.success("Tag aggiornato!");
+            toast.success(t("Success"));
             setEditingTag(null);
             await loadTags();
         } catch (error) {
             console.error("Errore aggiornamento tag:", error);
-            toast.error("Errore durante l'aggiornamento del tag");
+            toast.error(t("Update error"));
         }
     };
 
     const handleDeleteTag = async (tagId, tagName) => {
         const confirm = window.confirm(
-            `Eliminare il tag "${tagName}"? VerrÃ  rimosso da tutti i task.`
+            `${t("Are you sure you want to delete")} "${tagName}"?`
         );
         if (!confirm) return;
 
         try {
             await jinn.tagsDelete(tagId);
-            toast.success("Tag eliminato!");
+            toast.success(t("Deleted successfully"));
             await loadTags();
         } catch (error) {
             console.error("Errore eliminazione tag:", error);
-            toast.error("Errore durante l'eliminazione del tag");
+            toast.error(t("Deletion error"));
         }
     };
 
@@ -119,18 +121,18 @@ export default function TagManager({ show, onHide }) {
             <Modal.Header closeButton className="bg-dark text-light border-secondary">
                 <Modal.Title>
                     <FiTag className="me-2" />
-                    Gestione Tag
+                    {t("Tag Management")}
                 </Modal.Title>
             </Modal.Header>
 
             <Modal.Body className="bg-dark text-light">
                 {/* Crea nuovo tag */}
                 <div className="mb-4">
-                    <h6 className="mb-3">Nuovo Tag</h6>
+                    <h6 className="mb-3">{t("New Tag")}</h6>
                     <InputGroup className="mb-2">
                         <Form.Control
                             type="text"
-                            placeholder="Nome tag..."
+                            placeholder={t("Tag name...")}
                             value={newTagName}
                             onChange={(e) => setNewTagName(e.target.value)}
                             onKeyPress={(e) => {
@@ -146,7 +148,7 @@ export default function TagManager({ show, onHide }) {
                             style={{ maxWidth: "60px" }}
                         />
                         <Button variant="primary" onClick={handleCreateTag}>
-                            <FiPlus /> Crea
+                            <FiPlus /> {t("Create")}
                         </Button>
                     </InputGroup>
 
@@ -181,7 +183,7 @@ export default function TagManager({ show, onHide }) {
                         </InputGroup.Text>
                         <Form.Control
                             type="text"
-                            placeholder="Cerca tag..."
+                            placeholder={t("Search tags...")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="bg-dark text-light border-secondary"
@@ -192,15 +194,15 @@ export default function TagManager({ show, onHide }) {
                 {/* Lista tag */}
                 <div>
                     <h6 className="mb-2">
-                        Tag Esistenti ({filteredTags.length})
+                        {t("Existing Tags")} ({filteredTags.length})
                     </h6>
                     {isLoading ? (
                         <p className="text-center text-secondary">
-                            Caricamento...
+                            {t("Loading...")}
                         </p>
                     ) : filteredTags.length === 0 ? (
                         <p className="text-center text-secondary">
-                            Nessun tag trovato
+                            {t("No tags found")}
                         </p>
                     ) : (
                         <ListGroup>
@@ -240,7 +242,7 @@ export default function TagManager({ show, onHide }) {
                                                 size="sm"
                                                 onClick={handleUpdateTag}
                                             >
-                                                Salva
+                                                {t("Save")}
                                             </Button>
                                             <Button
                                                 variant="secondary"
@@ -249,7 +251,7 @@ export default function TagManager({ show, onHide }) {
                                                     setEditingTag(null)
                                                 }
                                             >
-                                                Annulla
+                                                {t("Cancel")}
                                             </Button>
                                         </div>
                                     ) : (
@@ -269,7 +271,7 @@ export default function TagManager({ show, onHide }) {
                                                 {tag.taskCount > 0 && (
                                                     <small className="text-secondary">
                                                         {tag.taskCount}{" "}
-                                                        task
+                                                        {t("tasks")}
                                                     </small>
                                                 )}
                                             </div>
@@ -307,7 +309,7 @@ export default function TagManager({ show, onHide }) {
 
             <Modal.Footer className="bg-dark text-light border-secondary">
                 <Button variant="secondary" onClick={onHide}>
-                    Chiudi
+                    {t("Close")}
                 </Button>
             </Modal.Footer>
         </Modal>

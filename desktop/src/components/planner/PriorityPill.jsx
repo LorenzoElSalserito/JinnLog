@@ -1,11 +1,15 @@
-const PRIORITY_META = {
-    HIGH: { label: "High", dot: "#22c55e" },
-    MEDIUM: { label: "Medium", dot: "#f97316" },
-    LOW: { label: "Low", dot: "#ef4444" },
-    NOT_SET: { label: "Not set", dot: "#9ca3af" },
-};
+import { useTranslation } from 'react-i18next';
 
 export default function PriorityPill({ value, onChange, onKeyDown, selectRef, disabled = false }) {
+    const { t } = useTranslation();
+
+    const PRIORITY_META = {
+        HIGH: { label: t("High"), dot: "#22c55e" },
+        MEDIUM: { label: t("Medium"), dot: "#f97316" },
+        LOW: { label: t("Low"), dot: "#ef4444" },
+        NOT_SET: { label: t("Not set"), dot: "#9ca3af" },
+    };
+
     const meta = PRIORITY_META[value] ?? PRIORITY_META.NOT_SET;
 
     return (

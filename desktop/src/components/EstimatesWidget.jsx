@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { jinn } from '../api/jinn';
 import { Bar } from 'react-chartjs-2';
+import { useTranslation } from 'react-i18next';
 
 const EstimatesWidget = ({ projectId }) => {
+    const { t } = useTranslation();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -22,8 +24,8 @@ const EstimatesWidget = ({ projectId }) => {
         }
     };
 
-    if (loading) return <div className="text-center p-3">Caricamento stime...</div>;
-    if (!data || !data.projectAnalytics || data.projectAnalytics.length === 0) return <div className="text-center p-3 text-muted">Nessun dato sulle stime disponibile.</div>;
+    if (loading) return <div className="text-center p-3">{t("Loading estimates...")}</div>;
+    if (!data || !data.projectAnalytics || data.projectAnalytics.length === 0) return <div className="text-center p-3 text-muted">{t("No estimate data available.")}</div>;
 
     // Prepara dati per il grafico
     // Se projectId è selezionato, mostra dettaglio task (top outliers)
@@ -45,12 +47,12 @@ const EstimatesWidget = ({ projectId }) => {
             labels: items.map(t => t.taskTitle.substring(0, 20) + '...'),
             datasets: [
                 {
-                    label: 'Stimato (min)',
+                    label: t("Estimated (min)"),
                     data: items.map(t => t.estimatedMinutes),
                     backgroundColor: 'rgba(53, 162, 235, 0.5)',
                 },
                 {
-                    label: 'Reale (min)',
+                    label: t("Actual (min)"),
                     data: items.map(t => t.actualMinutes),
                     backgroundColor: 'rgba(255, 99, 132, 0.5)',
                 }
@@ -63,7 +65,7 @@ const EstimatesWidget = ({ projectId }) => {
             labels: items.map(p => p.projectName),
             datasets: [
                 {
-                    label: 'Deviazione Media (%)',
+                    label: t("Average Deviation (%)"),
                     data: items.map(p => p.deviationPercentage),
                     backgroundColor: items.map(p => p.deviationPercentage > 0 ? 'rgba(255, 99, 132, 0.5)' : 'rgba(75, 192, 192, 0.5)'),
                 }
@@ -79,7 +81,7 @@ const EstimatesWidget = ({ projectId }) => {
                 <h3 className={deviation > 0 ? "text-danger" : "text-success"}>
                     {deviation > 0 ? "+" : ""}{deviation.toFixed(1)}%
                 </h3>
-                <p className="text-muted small">Deviazione media globale</p>
+                <p className="text-muted small">{t("Global average deviation")}</p>
             </div>
             <Bar options={options} data={chartData} />
         </div>

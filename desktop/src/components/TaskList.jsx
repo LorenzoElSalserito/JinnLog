@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 function statusBadge(status) {
     if (status === "DONE") return "success";
     if (status === "DOING") return "warning";
@@ -17,17 +19,18 @@ export default function TaskList({
                                      onUpdateTask,
                                      onDeleteTask,
                                  }) {
+    const { t } = useTranslation();
     return (
         <div className="card bg-black text-light border-secondary h-100">
             <div className="card-header border-secondary d-flex justify-content-between">
-                <span>Task</span>
-                <span className="text-secondary small">{tasks.length} totali</span>
+                <span>{t("Task")}</span>
+                <span className="text-secondary small">{tasks.length} {t("total")}</span>
             </div>
 
             <div className="card-body overflow-auto">
                 {tasks.length === 0 && (
                     <div className="text-secondary small">
-                        Nessun task. Premi â€œNuovo Taskâ€.
+                        {t("No tasks. Press “New Task”.")}
                     </div>
                 )}
 
@@ -65,7 +68,7 @@ export default function TaskList({
                                     <textarea
                                         className="form-control form-control-sm bg-dark text-light border-secondary mt-2"
                                         rows={2}
-                                        placeholder="Descrizione..."
+                                        placeholder={t("Description...")}
                                         value={t.description}
                                         onChange={(e) =>
                                             onUpdateTask(t.id, { description: e.target.value })
@@ -108,7 +111,7 @@ export default function TaskList({
                                             onDeleteTask(t.id);
                                         }}
                                     >
-                                        Elimina
+                                        {t("Delete")}
                                     </button>
                                 </div>
                             </div>

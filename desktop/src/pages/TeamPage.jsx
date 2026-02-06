@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { jinn } from '../api/jinn';
 import { toast } from 'react-toastify';
 import PortalModal from '../components/PortalModal.jsx';
+import { useTranslation } from 'react-i18next';
 
 const TeamPage = ({ shell }) => {
+    const { t } = useTranslation();
     const [projects, setProjects] = useState([]);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,37 +27,37 @@ const TeamPage = ({ shell }) => {
     const [targetProjectId, setTargetProjectId] = useState('');
 
     useEffect(() => {
-        shell?.setTitle?.("Gestione Team");
+        shell?.setTitle?.(t("Team Management"));
 
         // Imposta il pannello informativo laterale
         shell?.setRightPanel?.(
             <div className="d-flex flex-column gap-3">
-                <div className="fw-bold">Gestione Membri</div>
+                <div className="fw-bold">{t("Member Management")}</div>
 
                 <div className="p-3 border rounded-3 bg-white">
                     <div className="d-flex align-items-center gap-2 mb-2">
-                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle">JinnLog</span>
-                        <span className="fw-bold small">Utente Reale</span>
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle">{t("JinnLog")}</span>
+                        <span className="fw-bold small">{t("Real User")}</span>
                     </div>
                     <p className="small text-muted mb-0">
-                        Un tuo contatto JinnLogger. Deve essere prima aggiunto alle tue connessioni nella pagina "JinnLoggers".
+                        {t("A JinnLogger contact...")}
                     </p>
                 </div>
 
                 <div className="p-3 border rounded-3 bg-white">
                     <div className="d-flex align-items-center gap-2 mb-2">
-                        <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Locale</span>
-                        <span className="fw-bold small">Utente Virtuale</span>
+                        <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{t("Local")}</span>
+                        <span className="fw-bold small">{t("Virtual User")}</span>
                     </div>
                     <p className="small text-muted mb-0">
-                        Un segnaposto creato solo in questo progetto. Non ha login e serve per assegnare task a risorse esterne.
+                        {t("A placeholder created only...")}
                     </p>
                 </div>
             </div>
         );
 
         loadData();
-    }, [shell]);
+    }, [shell, t]);
 
     const loadData = async () => {
         try {
@@ -89,7 +91,7 @@ const TeamPage = ({ shell }) => {
             setMembers(allMembers);
         } catch (e) {
             console.error("Errore caricamento dati team:", e);
-            toast.error("Errore caricamento dati team");
+            toast.error(t("Error loading"));
         } finally {
             setLoading(false);
         }
@@ -97,7 +99,7 @@ const TeamPage = ({ shell }) => {
 
     const handleAddMember = async () => {
         if (!targetProjectId) {
-            toast.warning("Seleziona un progetto");
+            toast.warning(t("Select a project"));
             return;
         }
 
@@ -105,19 +107,19 @@ const TeamPage = ({ shell }) => {
             if (isRealUser) {
                 // Aggiungi utente reale (amico)
                 if (!selectedFriendId) {
-                    toast.warning("Seleziona un JinnLogger");
+                    toast.warning(t("Select JinnLogger *"));
                     return;
                 }
                 await jinn.projectMembersAdd(targetProjectId, selectedFriendId, "EDITOR");
-                toast.success("JinnLogger aggiunto al team");
+                toast.success(t("Success"));
             } else {
                 // Crea e aggiungi utente locale (Ghost)
                 if (!localName || !localUsername) {
-                    toast.warning("Compila nome e username");
+                    toast.warning(t("Please fix form errors"));
                     return;
                 }
                 await jinn.projectMembersCreateGhost(targetProjectId, localUsername, localName);
-                toast.success("Utente Locale creato e aggiunto");
+                toast.success(t("Success"));
             }
 
             // Reset e reload
@@ -127,19 +129,19 @@ const TeamPage = ({ shell }) => {
             setSelectedFriendId('');
             loadData();
         } catch (e) {
-            toast.error("Errore: " + e.message);
+            toast.error(t("Error") + ": " + e.message);
         }
     };
 
     const handleRemoveMember = async (member) => {
-        if (!confirm(`Rimuovere ${member.user.displayName || member.user.username} dal progetto ${member.projectName}?`)) return;
+        if (!confirm(`${t("Remove")} ${member.user.displayName || member.user.username} ${t("from project")} ${member.projectName}?`)) return;
 
         try {
             await jinn.projectMembersRemove(member.projectId, member.user.id);
-            toast.success("Membro rimosso");
+            toast.success(t("Deleted successfully"));
             loadData();
         } catch (e) {
-            toast.error("Errore rimozione: " + e.message);
+            toast.error(t("Deletion error") + ": " + e.message);
         }
     };
 
@@ -161,7 +163,7 @@ const TeamPage = ({ shell }) => {
                         value={selectedProject}
                         onChange={(e) => setSelectedProject(e.target.value)}
                     >
-                        <option value="">Tutti i progetti</option>
+                        <option value="">{t("All projects")}</option>
                         {projects.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
@@ -169,7 +171,7 @@ const TeamPage = ({ shell }) => {
                 </div>
                 <button className="btn btn-primary" onClick={() => setShowModal(true)}>
                     <i className="bi bi-plus-lg me-2"></i>
-                    Nuovo Membro
+                    {t("New Member")}
                 </button>
             </div>
 
@@ -179,18 +181,18 @@ const TeamPage = ({ shell }) => {
                     <table className="table table-hover mb-0">
                         <thead className="bg-light">
                         <tr>
-                            <th className="ps-4 py-3">Membro</th>
-                            <th className="py-3">Tipo Account</th>
-                            <th className="py-3">Progetto</th>
-                            <th className="py-3">Ruolo</th>
-                            <th className="py-3 text-end pe-4">Azioni</th>
+                            <th className="ps-4 py-3">{t("Member")}</th>
+                            <th className="py-3">{t("Account Type")}</th>
+                            <th className="py-3">{t("Project")}</th>
+                            <th className="py-3">{t("Role")}</th>
+                            <th className="py-3 text-end pe-4">{t("Actions")}</th>
                         </tr>
                         </thead>
                         <tbody>
                         {filteredMembers.length === 0 ? (
                             <tr>
                                 <td colSpan="5" className="text-center py-5 text-muted">
-                                    Nessun membro trovato.
+                                    {t("No members found.")}
                                 </td>
                             </tr>
                         ) : (
@@ -209,9 +211,9 @@ const TeamPage = ({ shell }) => {
                                     </td>
                                     <td>
                                         {m.user.ghost ? (
-                                            <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Locale</span>
+                                            <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{t("Local")}</span>
                                         ) : (
-                                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">JinnLog</span>
+                                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">{t("JinnLog")}</span>
                                         )}
                                     </td>
                                     <td>
@@ -229,7 +231,7 @@ const TeamPage = ({ shell }) => {
                                             <button
                                                 className="btn btn-sm btn-outline-danger"
                                                 onClick={() => handleRemoveMember(m)}
-                                                title="Rimuovi dal progetto"
+                                                title={t("Remove from project")}
                                             >
                                                 <i className="bi bi-trash"></i>
                                             </button>
@@ -247,19 +249,19 @@ const TeamPage = ({ shell }) => {
             {showModal && (
                 <PortalModal onClick={() => setShowModal(false)}>
                     <div className="modal-header">
-                        <h5 className="modal-title">Aggiungi Membro al Team</h5>
+                        <h5 className="modal-title">{t("Add Member to Team")}</h5>
                         <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
                     </div>
                     <div className="modal-body">
                         {/* Project Selection */}
                         <div className="mb-3">
-                            <label className="form-label fw-bold">Progetto *</label>
+                            <label className="form-label fw-bold">{t("Project *")}</label>
                             <select
                                 className="form-select"
                                 value={targetProjectId}
                                 onChange={(e) => setTargetProjectId(e.target.value)}
                             >
-                                <option value="">Seleziona progetto...</option>
+                                <option value="">{t("Select project...")}</option>
                                 {projects.map(p => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
@@ -279,13 +281,13 @@ const TeamPage = ({ shell }) => {
                                     onChange={(e) => setIsRealUser(e.target.checked)}
                                 />
                                 <label className="form-check-label fw-bold" htmlFor="userTypeSwitch">
-                                    {isRealUser ? "Collega JinnLogger (Amico)" : "Crea Utente Locale (Virtuale)"}
+                                    {isRealUser ? t("Connect JinnLog User (Friend)") : t("Create Local User (Virtual)")}
                                 </label>
                             </div>
                             <div className="form-text small mt-1">
                                 {isRealUser
-                                    ? "Seleziona uno dei tuoi contatti JinnLog per invitarlo a collaborare."
-                                    : "Crea un profilo locale per assegnare task a chi non ha ancora un account."
+                                    ? t("Select one of your contacts...")
+                                    : t("Create a local profile...")
                                 }
                             </div>
                         </div>
@@ -293,13 +295,13 @@ const TeamPage = ({ shell }) => {
                         {/* Dynamic Form Fields */}
                         {isRealUser ? (
                             <div className="mb-3 fade-in">
-                                <label className="form-label">Seleziona JinnLogger *</label>
+                                <label className="form-label">{t("Select JinnLogger *")}</label>
                                 <select
                                     className="form-select"
                                     value={selectedFriendId}
                                     onChange={(e) => setSelectedFriendId(e.target.value)}
                                 >
-                                    <option value="">-- Seleziona contatto --</option>
+                                    <option value="">{t("-- Select contact --")}</option>
                                     {friends.map(u => (
                                         <option key={u.id} value={u.id}>
                                             {u.displayName || u.username} (@{u.username})
@@ -308,40 +310,40 @@ const TeamPage = ({ shell }) => {
                                 </select>
                                 {friends.length === 0 && (
                                     <div className="alert alert-warning mt-2 small">
-                                        Non hai ancora connessioni. Vai alla pagina "JinnLoggers" per aggiungere amici.
+                                        {t("No connections yet...")}
                                     </div>
                                 )}
                             </div>
                         ) : (
                             <div className="fade-in">
                                 <div className="mb-3">
-                                    <label className="form-label">Nome Visualizzato *</label>
+                                    <label className="form-label">{t("Display Name *")}</label>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Es. Mario Rossi (Esterno)"
+                                        placeholder={t("Ex. John Doe (External)")}
                                         value={localName}
                                         onChange={(e) => setLocalName(e.target.value)}
                                     />
                                 </div>
                                 <div className="mb-3">
-                                    <label className="form-label">Username Identificativo *</label>
+                                    <label className="form-label">{t("Username Identifier *")}</label>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Es. mario.rossi.ext"
+                                        placeholder={t("Ex. john.doe.ext")}
                                         value={localUsername}
                                         onChange={(e) => setLocalUsername(e.target.value)}
                                     />
-                                    <div className="form-text">Deve essere univoco nel sistema.</div>
+                                    <div className="form-text">{t("Must be unique in the system.")}</div>
                                 </div>
                             </div>
                         )}
                     </div>
                     <div className="modal-footer">
-                        <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annulla</button>
+                        <button className="btn btn-secondary" onClick={() => setShowModal(false)}>{t("Cancel")}</button>
                         <button className="btn btn-primary" onClick={handleAddMember}>
-                            {isRealUser ? "Aggiungi al Team" : "Crea Locale"}
+                            {isRealUser ? t("Add to Team") : t("Create Local")}
                         </button>
                     </div>
                 </PortalModal>

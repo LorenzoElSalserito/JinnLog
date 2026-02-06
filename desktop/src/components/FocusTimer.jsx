@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { jinn } from "../api/jinn.js";
+import { useTranslation } from 'react-i18next';
 
 function formatMs(ms) {
     const total = Math.floor(ms / 1000);
@@ -9,6 +10,7 @@ function formatMs(ms) {
 }
 
 export default function FocusTimer({ selectedTask }) {
+    const { t } = useTranslation();
     const [running, setRunning] = useState(null);
     const [elapsed, setElapsed] = useState(0);
 
@@ -58,11 +60,11 @@ export default function FocusTimer({ selectedTask }) {
 
     return (
         <div className="card bg-black text-light border-secondary">
-            <div className="card-header border-secondary">Focus Timer</div>
+            <div className="card-header border-secondary">{t("Focus Timer")}</div>
 
             <div className="card-body d-flex flex-column gap-3">
                 <div>
-                    <div className="text-secondary small mb-1">Task selezionato</div>
+                    <div className="text-secondary small mb-1">{t("Selected task")}</div>
                     <div className="fw-bold">{selectedTask ? selectedTask.title : "â€”"}</div>
                 </div>
 
@@ -70,24 +72,24 @@ export default function FocusTimer({ selectedTask }) {
 
                 <div className="d-flex gap-2">
                     <button className="btn btn-success" disabled={!selectedTask || running} onClick={start}>
-                        Start
+                        {t("Start")}
                     </button>
 
                     <button className="btn btn-danger" disabled={!running} onClick={stop}>
-                        Stop
+                        {t("Stop")}
                     </button>
                 </div>
 
                 {running && (
                     <div className="text-secondary small">
-                        Timer attivo su:{" "}
+                        {t("Timer active on:")}{" "}
                         <span className={isThisTaskRunning ? "text-light" : "text-warning"}>
               {running.taskId}
             </span>
                     </div>
                 )}
 
-                <div className="text-secondary small">MVP: timer semplice + salvataggio sessioni</div>
+                <div className="text-secondary small">{t("MVP: simple timer + session saving")}</div>
             </div>
         </div>
     );

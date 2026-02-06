@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { jinn } from "../api/jinn.js";
+import { useTranslation } from 'react-i18next';
 
 function formatMs(ms) {
     const total = Math.floor((ms ?? 0) / 1000);
@@ -27,6 +28,7 @@ function overlapMs(session, fromMs, toMs) {
 }
 
 export default function FocusHistory({ selectedTask }) {
+    const { t } = useTranslation();
     const [sessionsTask, setSessionsTask] = useState([]);
     const [sessionsAll, setSessionsAll] = useState([]);
     const [running, setRunning] = useState(null);
@@ -83,40 +85,40 @@ export default function FocusHistory({ selectedTask }) {
     return (
         <div className="card bg-black text-light border-secondary">
             <div className="card-header border-secondary d-flex justify-content-between align-items-center">
-                <span>Storico Focus</span>
+                <span>{t("Focus History")}</span>
                 <button className="btn btn-sm btn-outline-light" onClick={refresh}>
-                    Refresh
+                    {t("Refresh")}
                 </button>
             </div>
 
             <div className="card-body">
                 {!selectedTask ? (
-                    <div className="text-secondary small">Seleziona un task per vedere lo storico.</div>
+                    <div className="text-secondary small">{t("Select a task to view history.")}</div>
                 ) : (
                     <>
                         <div className="mb-3">
-                            <div className="text-secondary small mb-1">Task</div>
+                            <div className="text-secondary small mb-1">{t("Task")}</div>
                             <div className="fw-bold text-truncate">{selectedTask.title}</div>
                         </div>
 
                         <div className="row g-2 mb-3">
                             <div className="col-6">
                                 <div className="p-2 border border-secondary rounded bg-dark">
-                                    <div className="text-secondary small">Totale task</div>
+                                    <div className="text-secondary small">{t("Task total")}</div>
                                     <div className="fw-bold">{formatMs(stats.taskTotal)}</div>
                                 </div>
                             </div>
 
                             <div className="col-6">
                                 <div className="p-2 border border-secondary rounded bg-dark">
-                                    <div className="text-secondary small">Oggi task</div>
+                                    <div className="text-secondary small">{t("Task today")}</div>
                                     <div className="fw-bold">{formatMs(stats.taskToday)}</div>
                                 </div>
                             </div>
 
                             <div className="col-12">
                                 <div className="p-2 border border-secondary rounded bg-dark">
-                                    <div className="text-secondary small">Oggi totale (tutti i task)</div>
+                                    <div className="text-secondary small">{t("Today total (all tasks)")}</div>
                                     <div className="fw-bold">{formatMs(stats.todayAll)}</div>
                                 </div>
                             </div>
@@ -124,17 +126,17 @@ export default function FocusHistory({ selectedTask }) {
 
                         {running && (
                             <div className="text-secondary small mb-2">
-                                Timer attivo: <span className="text-light">{running.taskId}</span>
+                                {t("Timer active:")} <span className="text-light">{running.taskId}</span>
                             </div>
                         )}
 
                         <div className="text-secondary small mb-2">
-                            Sessioni ({sessionsTask.length})
+                            {t("Sessions")} ({sessionsTask.length})
                         </div>
 
                         <div className="border border-secondary rounded p-2 bg-dark" style={{ maxHeight: 260, overflow: "auto" }}>
                             {sessionsTask.length === 0 ? (
-                                <div className="text-secondary small">Nessuna sessione ancora.</div>
+                                <div className="text-secondary small">{t("No sessions yet.")}</div>
                             ) : (
                                 <div className="d-flex flex-column gap-2">
                                     {sessionsTask.map((s) => {

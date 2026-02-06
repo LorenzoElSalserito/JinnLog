@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { jinn } from '../api/jinn';
 import { Tooltip } from 'react-tooltip';
+import { useTranslation } from 'react-i18next';
 
 const FocusHeatmapWidget = ({ projectId, range = 365 }) => {
+    const { t } = useTranslation();
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -34,7 +36,7 @@ const FocusHeatmapWidget = ({ projectId, range = 365 }) => {
         return '#216e39'; // Verde scuro
     };
 
-    if (loading) return <div className="text-center p-3">Caricamento heatmap...</div>;
+    if (loading) return <div className="text-center p-3">{t("Loading heatmap...")}</div>;
 
     // Trasforma i dati in una mappa per accesso rapido
     const dataMap = new Map(data.map(d => [d.date, d.totalMinutes]));
@@ -97,13 +99,13 @@ const FocusHeatmapWidget = ({ projectId, range = 365 }) => {
             <Tooltip id="heatmap-tooltip" />
             
             <div className="d-flex align-items-center gap-2 mt-2 text-muted small">
-                <span>Meno</span>
+                <span>{t("Less")}</span>
                 <div style={{width: 10, height: 10, background: '#ebedf0'}}></div>
                 <div style={{width: 10, height: 10, background: '#9be9a8'}}></div>
                 <div style={{width: 10, height: 10, background: '#40c463'}}></div>
                 <div style={{width: 10, height: 10, background: '#30a14e'}}></div>
                 <div style={{width: 10, height: 10, background: '#216e39'}}></div>
-                <span>Più</span>
+                <span>{t("More")}</span>
             </div>
         </div>
     );

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export default function KanbanBoard({
                                         tasks,
                                         selectedTaskId,
@@ -5,6 +7,7 @@ export default function KanbanBoard({
                                         onMoveTask,
                                         onDeleteTask,
                                     }) {
+    const { t } = useTranslation();
     const columns = [
         { key: "TODO", title: "TODO" },
         { key: "DOING", title: "DOING" },
@@ -32,7 +35,7 @@ export default function KanbanBoard({
         <div className="card bg-black text-light border-secondary h-100">
             <div className="card-header border-secondary d-flex justify-content-between align-items-center">
                 <span>Kanban</span>
-                <span className="text-secondary small">{tasks.length} task visibili</span>
+                <span className="text-secondary small">{tasks.length} {t("visible tasks")}</span>
             </div>
 
             <div className="card-body h-100">
@@ -68,7 +71,7 @@ export default function KanbanBoard({
                                                     draggable
                                                     onDragStart={(e) => onDragStart(e, t.id)}
                                                     onClick={() => onSelectTask(t.id)}
-                                                    title="Trascina per cambiare colonna"
+                                                    title={t("Drag to change column")}
                                                 >
                                                     <div className="d-flex justify-content-between align-items-start gap-2">
                                                         <div className="flex-grow-1">
@@ -97,7 +100,7 @@ export default function KanbanBoard({
                                                                 e.stopPropagation();
                                                                 onDeleteTask(t.id);
                                                             }}
-                                                            title="Elimina task"
+                                                            title={t("Delete task")}
                                                         >
                                                             âœ•
                                                         </button>
@@ -112,7 +115,7 @@ export default function KanbanBoard({
                                                                 const next = t.status === "DONE" ? "DOING" : "TODO";
                                                                 onMoveTask(t.id, next);
                                                             }}
-                                                            title="Sposta a sinistra"
+                                                            title={t("Move left")}
                                                         >
                                                             â†
                                                         </button>
@@ -125,7 +128,7 @@ export default function KanbanBoard({
                                                                 const next = t.status === "TODO" ? "DOING" : "DONE";
                                                                 onMoveTask(t.id, next);
                                                             }}
-                                                            title="Sposta a destra"
+                                                            title={t("Move right")}
                                                         >
                                                             â†’
                                                         </button>
@@ -136,7 +139,7 @@ export default function KanbanBoard({
 
                                         {colTasks.length === 0 && (
                                             <div className="text-secondary small">
-                                                Nessun task in {col.title}
+                                                {t("No tasks in")} {col.title}
                                             </div>
                                         )}
                                     </div>
@@ -147,7 +150,7 @@ export default function KanbanBoard({
                 </div>
 
                 <div className="text-secondary small mt-2">
-                    Suggerimento: per editare testo/descrizione in modo comodo usa la vista Lista (la manteniamo apposta)
+                    {t("Tip: to edit text/description comfortably use the List view")}
                 </div>
             </div>
         </div>

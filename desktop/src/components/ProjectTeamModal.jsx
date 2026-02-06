@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import PortalModal from "./PortalModal.jsx";
+import { useTranslation } from 'react-i18next';
 
 export default function ProjectTeamModal({ project, onClose }) {
+    const { t } = useTranslation();
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("list"); // list, add
@@ -56,7 +58,7 @@ export default function ProjectTeamModal({ project, onClose }) {
             const list = await jinn.projectMembersList(project.id);
             setMembers(list || []);
         } catch (e) {
-            toast.error("Errore caricamento membri: " + e.message);
+            toast.error(t("Error loading") + ": " + e.message);
         } finally {
             setLoading(false);
         }
@@ -67,11 +69,11 @@ export default function ProjectTeamModal({ project, onClose }) {
             if (isRealUser) {
                 if (!selectedRealUser) return;
                 await jinn.projectMembersAdd(project.id, selectedRealUser.id, selectedRole);
-                toast.success("Membro aggiunto");
+                toast.success(t("Success"));
             } else {
                 if (!localName || !localUsername) return;
                 await jinn.projectMembersCreateGhost(project.id, localUsername, localName);
-                toast.success("Utente locale creato");
+                toast.success(t("Success"));
             }
             setActiveTab("list");
             loadMembers();
@@ -81,18 +83,18 @@ export default function ProjectTeamModal({ project, onClose }) {
             setLocalName("");
             setLocalUsername("");
         } catch (e) {
-            toast.error("Errore: " + e.message);
+            toast.error(t("Error") + ": " + e.message);
         }
     };
 
     const handleRemoveMember = async (userId) => {
-        if (!confirm("Rimuovere questo membro dal progetto?")) return;
+        if (!confirm(t("Are you sure you want to delete"))) return;
         try {
             await jinn.projectMembersRemove(project.id, userId);
-            toast.success("Membro rimosso");
+            toast.success(t("Deleted successfully"));
             loadMembers();
         } catch (e) {
-            toast.error("Errore rimozione: " + e.message);
+            toast.error(t("Deletion error") + ": " + e.message);
         }
     };
 
@@ -101,16 +103,16 @@ export default function ProjectTeamModal({ project, onClose }) {
             {/* NOTA: PortalModal fornisce già modal-dialog e modal-content,
                 quindi qui passiamo solo il contenuto interno */}
             <div className="modal-header">
-                <h5 className="modal-title">Gestione Team: {project.name}</h5>
+                <h5 className="modal-title">{t("Team Management:")} {project.name}</h5>
                 <button type="button" className="btn-close" onClick={onClose}></button>
             </div>
             <div className="modal-body">
                 <ul className="nav nav-tabs mb-3">
                     <li className="nav-item">
-                        <button className={`nav-link ${activeTab === "list" ? "active" : ""}`} onClick={() => setActiveTab("list")}>Membri</button>
+                        <button className={`nav-link ${activeTab === "list" ? "active" : ""}`} onClick={() => setActiveTab("list")}>{t("Members")}</button>
                     </li>
                     <li className="nav-item">
-                        <button className={`nav-link ${activeTab === "add" ? "active" : ""}`} onClick={() => setActiveTab("add")}>Aggiungi</button>
+                        <button className={`nav-link ${activeTab === "add" ? "active" : ""}`} onClick={() => setActiveTab("add")}>{t("Add")}</button>
                     </li>
                 </ul>
 
@@ -119,7 +121,7 @@ export default function ProjectTeamModal({ project, onClose }) {
                         {loading ? (
                             <div className="text-center py-3"><div className="spinner-border spinner-border-sm"></div></div>
                         ) : members.length === 0 ? (
-                            <div className="text-center text-muted py-3">Nessun membro</div>
+                            <div className="text-center text-muted py-3">{t("No members")}</div>
                         ) : (
                             members.map(m => (
                                 <div key={m.user.id} className="list-group-item d-flex justify-content-between align-items-center">
@@ -127,9 +129,9 @@ export default function ProjectTeamModal({ project, onClose }) {
                                         <div className="fw-bold d-flex align-items-center gap-2">
                                             {m.user.displayName || m.user.username}
                                             {m.user.isGhost ? (
-                                                <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style={{fontSize: '0.6rem'}}>LOCALE</span>
+                                                <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style={{fontSize: '0.6rem'}}>{t("LOCAL")}</span>
                                             ) : (
-                                                <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{fontSize: '0.6rem'}}>JINNLOG</span>
+                                                <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{fontSize: '0.6rem'}}>{t("JINNLOG")}</span>
                                             )}
                                         </div>
                                         <small className="text-muted">{m.role}</small>
@@ -156,18 +158,18 @@ export default function ProjectTeamModal({ project, onClose }) {
                                 onChange={(e) => setIsRealUser(e.target.checked)}
                             />
                             <label className="form-check-label fw-bold" htmlFor="modalUserTypeSwitch">
-                                {isRealUser ? "Collega Utente JinnLog" : "Crea Utente Locale"}
+                                {isRealUser ? t("Connect JinnLog User") : t("Create Local User")}
                             </label>
                         </div>
 
                         {isRealUser ? (
                             <>
                                 <div className="position-relative">
-                                    <label className="form-label">Cerca Utente</label>
+                                    <label className="form-label">{t("Search User")}</label>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Nome, username o email..."
+                                        placeholder={t("Name, username or email...")}
                                         value={searchQuery}
                                         onChange={(e) => {
                                             setSearchQuery(e.target.value);
@@ -203,26 +205,26 @@ export default function ProjectTeamModal({ project, onClose }) {
                                 {selectedRealUser && (
                                     <div className="text-success small">
                                         <i className="bi bi-check-circle me-1"></i>
-                                        Selezionato: <strong>{selectedRealUser.displayName || selectedRealUser.username}</strong>
+                                        {t("Selected:")} <strong>{selectedRealUser.displayName || selectedRealUser.username}</strong>
                                     </div>
                                 )}
                                 <div>
-                                    <label className="form-label">Ruolo</label>
+                                    <label className="form-label">{t("Role")}</label>
                                     <select className="form-select" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
-                                        <option value="EDITOR">Editor</option>
-                                        <option value="VIEWER">Viewer</option>
+                                        <option value="EDITOR">{t("Editor")}</option>
+                                        <option value="VIEWER">{t("Viewer")}</option>
                                     </select>
                                 </div>
                             </>
                         ) : (
                             <>
                                 <div>
-                                    <label className="form-label">Nome Visualizzato</label>
-                                    <input type="text" className="form-control" value={localName} onChange={(e) => setLocalName(e.target.value)} placeholder="Es. Mario Rossi (Esterno)" />
+                                    <label className="form-label">{t("Display Name")}</label>
+                                    <input type="text" className="form-control" value={localName} onChange={(e) => setLocalName(e.target.value)} placeholder={t("Ex. John Doe (External)")} />
                                 </div>
                                 <div>
-                                    <label className="form-label">Username (univoco)</label>
-                                    <input type="text" className="form-control" value={localUsername} onChange={(e) => setLocalUsername(e.target.value)} placeholder="mario.rossi.local" />
+                                    <label className="form-label">{t("Username (unique)")}</label>
+                                    <input type="text" className="form-control" value={localUsername} onChange={(e) => setLocalUsername(e.target.value)} placeholder={t("john.doe.local")} />
                                 </div>
                             </>
                         )}
@@ -232,7 +234,7 @@ export default function ProjectTeamModal({ project, onClose }) {
                             onClick={handleAddMember}
                             disabled={isRealUser ? !selectedRealUser : (!localName || !localUsername)}
                         >
-                            {isRealUser ? "Aggiungi al Team" : "Crea e Aggiungi"}
+                            {isRealUser ? t("Add to Team") : t("Create and Add")}
                         </button>
                     </div>
                 )}

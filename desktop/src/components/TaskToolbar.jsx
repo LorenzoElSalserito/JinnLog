@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export default function TaskToolbar({
                                         search,
                                         setSearch,
@@ -8,12 +10,13 @@ export default function TaskToolbar({
                                         sortBy,
                                         setSortBy,
                                     }) {
+    const { t } = useTranslation();
     return (
         <div className="d-flex gap-2 align-items-center flex-wrap">
             <input
                 className="form-control bg-dark text-light border-secondary"
                 style={{ maxWidth: 320 }}
-                placeholder="Cerca task..."
+                placeholder={t("Search tasks...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
             />
@@ -24,7 +27,7 @@ export default function TaskToolbar({
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
             >
-                <option value="ALL">Status: Tutti</option>
+                <option value="ALL">{t("Status: All")}</option>
                 <option value="TODO">TODO</option>
                 <option value="DOING">DOING</option>
                 <option value="DONE">DONE</option>
@@ -36,7 +39,7 @@ export default function TaskToolbar({
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
             >
-                <option value="ALL">PrioritÃ : Tutte</option>
+                <option value="ALL">{t("Priority: All")}</option>
                 <option value="LOW">LOW</option>
                 <option value="MED">MED</option>
                 <option value="HIGH">HIGH</option>
@@ -48,10 +51,10 @@ export default function TaskToolbar({
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
             >
-                <option value="UPDATED_DESC">Ordina: Ultimo aggiornato</option>
-                <option value="CREATED_DESC">Ordina: PiÃ¹ recente</option>
-                <option value="PRIORITY_DESC">Ordina: PrioritÃ  alta</option>
-                <option value="TITLE_ASC">Ordina: Titolo A-Z</option>
+                <option value="UPDATED_DESC">{t("Sort: Last updated")}</option>
+                <option value="CREATED_DESC">{t("Sort: Newest")}</option>
+                <option value="PRIORITY_DESC">{t("Sort: High priority")}</option>
+                <option value="TITLE_ASC">{t("Sort: Title A-Z")}</option>
             </select>
 
             <button
@@ -63,7 +66,7 @@ export default function TaskToolbar({
                     setSortBy("UPDATED_DESC");
                 }}
             >
-                Reset
+                {t("Reset")}
             </button>
         </div>
     );

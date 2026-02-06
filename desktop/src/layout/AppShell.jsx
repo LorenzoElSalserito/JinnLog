@@ -481,7 +481,7 @@ export default function AppShell({ initialUser, onLogout }) {
             title={rightPanelOpen ? "Nascondi pannello destro" : "Mostra pannello destro"}
             onClick={() => setRightPanelOpen((v) => !v)}
         >
-            {rightPanelOpen ? "Panel ▸" : "Panel ◂"}
+            {rightPanelOpen ? `${t("Panel")} ▸` : `${t("Panel")} ◂`}
         </button>
     );
 

@@ -1,4 +1,5 @@
 import LoadingIcon from "../assets/Loading.svg";
+import { useTranslation } from 'react-i18next';
 
 /**
  * SplashScreen (SplashScreen) - Schermata di transizione generica
@@ -10,7 +11,10 @@ import LoadingIcon from "../assets/Loading.svg";
  * 
  * @param {string} message - Messaggio da mostrare sotto lo spinner
  */
-export default function SplashScreen({ message = "Caricamento in corso..." }) {
+export default function SplashScreen({ message }) {
+    const { t } = useTranslation();
+    const displayMessage = message || t("Loading...");
+
     return (
         <div className="logout-screen">
             <div className="logout-content text-center">
@@ -23,7 +27,7 @@ export default function SplashScreen({ message = "Caricamento in corso..." }) {
                 <h4 className="fw-bold mb-3">JinnLog</h4>
                 <div className="d-flex align-items-center justify-content-center gap-2 text-muted">
                     <div className="spinner-border spinner-border-sm" role="status"></div>
-                    <span>{message}</span>
+                    <span>{displayMessage}</span>
                 </div>
             </div>
 

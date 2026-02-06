@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { jinn } from "../api/jinn.js";
+import { useTranslation } from 'react-i18next';
 
 export default function DataActions({ selectedProjectId, onImported }) {
+    const { t } = useTranslation();
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState("");
 
@@ -11,12 +13,12 @@ export default function DataActions({ selectedProjectId, onImported }) {
         try {
             jinn.log("[UI] Export JSON dialog");
             const res = await jinn.exportJsonDialog();
-            if (res?.ok) setMessage(`Esportato JSON: ${res.filePath}`);
-            else if (res?.canceled) setMessage("Esportazione annullata");
-            else setMessage("Esportazione fallita");
+            if (res?.ok) setMessage(`${t("JSON exported:")} ${res.filePath}`);
+            else if (res?.canceled) setMessage(t("Cancel"));
+            else setMessage(t("Error"));
         } catch (e) {
             jinn.error("Export JSON error", e);
-            setMessage("Errore export JSON (vedi log)");
+            setMessage(t("Error"));
         } finally {
             setBusy(false);
         }
@@ -27,17 +29,17 @@ export default function DataActions({ selectedProjectId, onImported }) {
         setMessage("");
         try {
             if (!selectedProjectId) {
-                setMessage("Seleziona un progetto per esportare CSV");
+                setMessage(t("Select a project to export CSV"));
                 return;
             }
             jinn.log("[UI] Export CSV dialog projectId=", selectedProjectId);
             const res = await jinn.exportCsvDialog(selectedProjectId);
-            if (res?.ok) setMessage(`Esportato CSV: ${res.filePath}`);
-            else if (res?.canceled) setMessage("Esportazione annullata");
-            else setMessage(res?.error ?? "Esportazione fallita");
+            if (res?.ok) setMessage(`${t("Success")}: ${res.filePath}`);
+            else if (res?.canceled) setMessage(t("Cancel"));
+            else setMessage(res?.error ?? t("Error"));
         } catch (e) {
             jinn.error("Export CSV error", e);
-            setMessage("Errore export CSV (vedi log)");
+            setMessage(t("Error"));
         } finally {
             setBusy(false);
         }
@@ -51,17 +53,17 @@ export default function DataActions({ selectedProjectId, onImported }) {
             const res = await jinn.importJsonDialog();
             if (res?.ok) {
                 setMessage(
-                    `Import OK: progetti=${res.stats.projects}, task=${res.stats.tasks}, sessioni=${res.stats.focusSessions}`
+                    `${t("Success")}: ${t("Projects")} = ${res.stats.projects}, ${t("Task")} = ${res.stats.tasks}, ${t("Sessions")} = ${res.stats.focusSessions}`
                 );
                 if (onImported) await onImported();
             } else if (res?.canceled) {
-                setMessage("Import annullato");
+                setMessage(t("Cancel"));
             } else {
-                setMessage("Import fallito");
+                setMessage(t("Error"));
             }
         } catch (e) {
             jinn.error("Import JSON error", e);
-            setMessage("Errore import JSON (vedi log)");
+            setMessage(t("Error"));
         } finally {
             setBusy(false);
         }
@@ -71,18 +73,18 @@ export default function DataActions({ selectedProjectId, onImported }) {
         <div className="d-flex flex-column gap-2 align-items-end">
             <div className="d-flex gap-2 flex-wrap justify-content-end">
                 <button className="btn btn-outline-light" disabled={busy} onClick={doExportJson}>
-                    Export JSON
+                    {t("Export JSON")}
                 </button>
                 <button
                     className="btn btn-outline-light"
                     disabled={busy || !selectedProjectId}
                     onClick={doExportCsv}
-                    title={!selectedProjectId ? "Seleziona un progetto" : ""}
+                    title={!selectedProjectId ? t("Select a project") : ""}
                 >
-                    Export CSV (Progetto)
+                    {t("Export CSV (Project)")}
                 </button>
                 <button className="btn btn-outline-warning" disabled={busy} onClick={doImportJson}>
-                    Import JSON
+                    {t("Import JSON")}
                 </button>
             </div>
 

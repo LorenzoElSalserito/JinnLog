@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { jinn } from '../api/jinn';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 
 export default function ConnectionsPage({ shell }) {
+    const { t } = useTranslation();
     const [friends, setFriends] = useState([]);
     const [pendingIncoming, setPendingIncoming] = useState([]);
     const [pendingOutgoing, setPendingOutgoing] = useState([]);
@@ -11,22 +13,21 @@ export default function ConnectionsPage({ shell }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        shell?.setTitle?.("JinnLoggers");
+        shell?.setTitle?.(t("JinnLoggers"));
         shell?.setRightPanel?.(
             <div className="d-flex flex-column gap-3">
-                <div className="fw-bold">Le tue Connessioni</div>
+                <div className="fw-bold">{t("Your Connections")}</div>
                 <p className="small text-muted">
-                    Qui puoi gestire la tua rete di contatti JinnLog.
-                    Aggiungi amici per collaborare facilmente sui progetti.
+                    {t("Manage your JinnLog network here...")}
                 </p>
                 <div className="alert alert-info small">
                     <i className="bi bi-lightbulb me-2"></i>
-                    Solo i JinnLoggers connessi possono essere aggiunti ai tuoi team come utenti reali.
+                    {t("Only connected JinnLoggers can be added...")}
                 </div>
             </div>
         );
         loadData();
-    }, [shell]);
+    }, [shell, t]);
 
     const loadData = async () => {
         try {
@@ -44,7 +45,7 @@ export default function ConnectionsPage({ shell }) {
             setPendingOutgoing(outgoing);
         } catch (e) {
             console.error("Errore caricamento connessioni:", e);
-            toast.error("Errore caricamento dati");
+            toast.error(t("Error loading"));
         } finally {
             setLoading(false);
         }
@@ -68,49 +69,49 @@ export default function ConnectionsPage({ shell }) {
                 !pendingIds.has(u.id)
             ));
         } catch (e) {
-            toast.error("Errore ricerca");
+            toast.error(t("Error"));
         }
     };
 
     const sendRequest = async (targetId) => {
         try {
             await jinn.connectionsRequest(targetId);
-            toast.success("Richiesta inviata");
+            toast.success(t("Success"));
             setSearchResults(prev => prev.filter(u => u.id !== targetId));
             loadData();
         } catch (e) {
-            toast.error("Errore invio richiesta");
+            toast.error(t("Error"));
         }
     };
 
     const acceptRequest = async (connectionId) => {
         try {
             await jinn.connectionsAccept(connectionId);
-            toast.success("Richiesta accettata");
+            toast.success(t("Success"));
             loadData();
         } catch (e) {
-            toast.error("Errore accettazione");
+            toast.error(t("Error"));
         }
     };
 
     const rejectRequest = async (connectionId) => {
         try {
             await jinn.connectionsReject(connectionId);
-            toast.info("Richiesta rifiutata");
+            toast.info(t("Rejected"));
             loadData();
         } catch (e) {
-            toast.error("Errore rifiuto");
+            toast.error(t("Error"));
         }
     };
 
     const removeFriend = async (friendId) => {
-        if (!confirm("Rimuovere questo utente dagli amici?")) return;
+        if (!confirm(t("Are you sure you want to delete"))) return;
         try {
             await jinn.connectionsRemove(friendId);
-            toast.success("Amico rimosso");
+            toast.success(t("Deleted successfully"));
             loadData();
         } catch (e) {
-            toast.error("Errore rimozione");
+            toast.error(t("Deletion error"));
         }
     };
 
@@ -125,7 +126,7 @@ export default function ConnectionsPage({ shell }) {
                     {pendingIncoming.length > 0 && (
                         <div className="card mb-4 border-primary">
                             <div className="card-header bg-primary-subtle text-primary fw-bold">
-                                Richieste in Arrivo ({pendingIncoming.length})
+                                {t("Incoming Requests")} ({pendingIncoming.length})
                             </div>
                             <ul className="list-group list-group-flush">
                                 {pendingIncoming.map(req => (
@@ -135,8 +136,8 @@ export default function ConnectionsPage({ shell }) {
                                             <small className="text-muted">@{req.user.username}</small>
                                         </div>
                                         <div className="btn-group">
-                                            <button className="btn btn-sm btn-success" onClick={() => acceptRequest(req.id)}>Accetta</button>
-                                            <button className="btn btn-sm btn-outline-danger" onClick={() => rejectRequest(req.id)}>Rifiuta</button>
+                                            <button className="btn btn-sm btn-success" onClick={() => acceptRequest(req.id)}>{t("Accept")}</button>
+                                            <button className="btn btn-sm btn-outline-danger" onClick={() => rejectRequest(req.id)}>{t("Reject")}</button>
                                         </div>
                                     </li>
                                 ))}
@@ -147,11 +148,11 @@ export default function ConnectionsPage({ shell }) {
                     {/* Lista Amici */}
                     <div className="card shadow-sm">
                         <div className="card-header bg-white fw-bold">
-                            I tuoi JinnLoggers ({friends.length})
+                            {t("Your JinnLoggers")} ({friends.length})
                         </div>
                         {friends.length === 0 ? (
                             <div className="p-4 text-center text-muted">
-                                Non hai ancora connessioni. Cerca utenti per aggiungerli!
+                                {t("No connections yet...")}
                             </div>
                         ) : (
                             <ul className="list-group list-group-flush">
@@ -166,7 +167,7 @@ export default function ConnectionsPage({ shell }) {
                                                 <small className="text-muted">@{friend.username}</small>
                                             </div>
                                         </div>
-                                        <button className="btn btn-sm btn-outline-danger" onClick={() => removeFriend(friend.id)} title="Rimuovi">
+                                        <button className="btn btn-sm btn-outline-danger" onClick={() => removeFriend(friend.id)} title={t("Remove")}>
                                             <i className="bi bi-person-x"></i>
                                         </button>
                                     </li>
@@ -180,19 +181,19 @@ export default function ConnectionsPage({ shell }) {
                 <div className="col-md-5">
                     <div className="card shadow-sm">
                         <div className="card-header bg-white fw-bold">
-                            Cerca JinnLoggers
+                            {t("Search JinnLoggers")}
                         </div>
                         <div className="card-body">
                             <div className="input-group mb-3">
                                 <input 
                                     type="text" 
                                     className="form-control" 
-                                    placeholder="Username o email..." 
+                                    placeholder={t("Username or email...")}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 />
-                                <button className="btn btn-primary" onClick={handleSearch}>Cerca</button>
+                                <button className="btn btn-primary" onClick={handleSearch}>{t("Search")}</button>
                             </div>
 
                             {searchResults.length > 0 && (
@@ -205,7 +206,7 @@ export default function ConnectionsPage({ shell }) {
                                             </div>
                                             <button className="btn btn-sm btn-outline-primary" onClick={() => sendRequest(user.id)}>
                                                 <i className="bi bi-person-plus me-1"></i>
-                                                Connetti
+                                                {t("Connect")}
                                             </button>
                                         </div>
                                     ))}
@@ -214,12 +215,12 @@ export default function ConnectionsPage({ shell }) {
                             
                             {pendingOutgoing.length > 0 && (
                                 <div className="mt-4">
-                                    <h6 className="small text-muted text-uppercase fw-bold mb-2">Richieste Inviate</h6>
+                                    <h6 className="small text-muted text-uppercase fw-bold mb-2">{t("Sent Requests")}</h6>
                                     <ul className="list-group list-group-flush small">
                                         {pendingOutgoing.map(req => (
                                             <li key={req.id} className="list-group-item d-flex justify-content-between align-items-center px-0">
-                                                <span className="text-muted">A: {req.user.displayName || req.user.username}</span>
-                                                <span className="badge bg-light text-dark border">In attesa</span>
+                                                <span className="text-muted">{t("To:")} {req.user.displayName || req.user.username}</span>
+                                                <span className="badge bg-light text-dark border">{t("Pending")}</span>
                                             </li>
                                         ))}
                                     </ul>
