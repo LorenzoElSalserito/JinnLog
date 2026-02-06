@@ -1,0 +1,131 @@
+package com.lorenzodm.jinnlog.service.impl;
+
+import com.lorenzodm.jinnlog.api.dto.response.ResourceAllocationResponse;
+import com.lorenzodm.jinnlog.core.entity.ProjectMember;
+import com.lorenzodm.jinnlog.core.entity.Task;
+import com.lorenzodm.jinnlog.core.entity.User;
+import com.lorenzodm.jinnlog.repository.ProjectMemberRepository;
+import com.lorenzodm.jinnlog.repository.TaskRepository;
+import com.lorenzodm.jinnlog.repository.UserRepository;
+import com.lorenzodm.jinnlog.service.ResourceService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional(readOnly = true)
+public class ResourceServiceImpl implements ResourceService {
+
+    private final TaskRepository taskRepository;
+    private final UserRepository userRepository;
+    private final ProjectMemberRepository projectMemberRepository;
+
+    public ResourceServiceImpl(TaskRepository taskRepository, UserRepository userRepository, ProjectMemberRepository projectMemberRepository) {
+        this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
+        this.projectMemberRepository = projectMemberRepository;
+    }
+
+    @Override
+    public ResourceAllocationResponse getResourceAllocation(String projectId, LocalDate startDate, LocalDate endDate) {
+        // 1. Recupera tutti i membri del progetto (inclusi Ghost)
+        List<ProjectMember> members = projectMemberRepository.findByProjectId(projectId);
+        
+        // Mappa ID utente -> Nome utente per tutti i membri
+        Map<String, String> memberNames = members.stream()
+                .collect(Collectors.toMap(
+                        m -> m.getUser().getId(),
+                        m -> m.getUser().getDisplayName() != null ? m.getUser().getDisplayName() : m.getUser().getUsername()
+                ));
+
+        // 2. Recupera tutti i task del progetto
+        List<Task> allTasks = taskRepository.findByProjectId(projectId);
+
+        // 3. Filtra task rilevanti per il periodo
+        List<Task> relevantTasks = allTasks.stream()
+                .filter(t -> !t.isArchived())
+                .filter(t -> isTaskInPeriod(t, startDate, endDate))
+                .toList();
+
+        // 4. Raggruppa task per utente assegnato
+        Map<String, List<Task>> tasksByUser = relevantTasks.stream()
+                .collect(Collectors.groupingBy(t -> t.getAssignedTo() != null ? t.getAssignedTo().getId() : "unassigned"));
+
+        List<ResourceAllocationResponse.UserAllocation> allocations = new ArrayList<>();
+
+        // 5. Crea entry per ogni membro del team (anche se non ha task)
+        for (String memberId : memberNames.keySet()) {
+            List<Task> userTasks = tasksByUser.getOrDefault(memberId, new ArrayList<>());
+            String userName = memberNames.get(memberId);
+            
+            Map<LocalDate, Integer> dailyMinutes = calculateDailyLoad(userTasks, startDate, endDate);
+            allocations.add(new ResourceAllocationResponse.UserAllocation(memberId, userName, dailyMinutes));
+        }
+        
+        // 6. Aggiungi entry per task non assegnati (se ce ne sono)
+        if (tasksByUser.containsKey("unassigned")) {
+            List<Task> unassignedTasks = tasksByUser.get("unassigned");
+            if (!unassignedTasks.isEmpty()) {
+                Map<LocalDate, Integer> dailyMinutes = calculateDailyLoad(unassignedTasks, startDate, endDate);
+                allocations.add(new ResourceAllocationResponse.UserAllocation("unassigned", "Non assegnato", dailyMinutes));
+            }
+        }
+
+        return new ResourceAllocationResponse(allocations);
+    }
+
+    private boolean isTaskInPeriod(Task t, LocalDate start, LocalDate end) {
+        // Priorità: Scheduled Date > Deadline
+        if (t.getScheduledStart() != null) {
+            LocalDate taskStart = t.getScheduledStart().toLocalDate();
+            LocalDate taskEnd = t.getScheduledEnd() != null ? t.getScheduledEnd().toLocalDate() : taskStart;
+            return !taskEnd.isBefore(start) && !taskStart.isAfter(end);
+        }
+        
+        if (t.getDeadline() != null) {
+            return !t.getDeadline().isBefore(start) && !t.getDeadline().isAfter(end);
+        }
+        
+        return false;
+    }
+
+    private Map<LocalDate, Integer> calculateDailyLoad(List<Task> tasks, LocalDate start, LocalDate end) {
+        Map<LocalDate, Integer> load = new HashMap<>();
+
+        for (Task t : tasks) {
+            int minutes = t.getEstimatedMinutes() != null ? t.getEstimatedMinutes() : 0;
+            if (minutes == 0) continue;
+
+            if (t.getScheduledStart() != null) {
+                // Distribuisci carico tra start e end
+                LocalDate taskStart = t.getScheduledStart().toLocalDate();
+                LocalDate taskEnd = t.getScheduledEnd() != null ? t.getScheduledEnd().toLocalDate() : taskStart;
+                
+                // Clamp to requested period
+                LocalDate effectiveStart = taskStart.isBefore(start) ? start : taskStart;
+                LocalDate effectiveEnd = taskEnd.isAfter(end) ? end : taskEnd;
+
+                if (!effectiveStart.isAfter(effectiveEnd)) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(taskStart, taskEnd) + 1;
+                    int minutesPerDay = (int) (minutes / days);
+
+                    effectiveStart.datesUntil(effectiveEnd.plusDays(1)).forEach(date -> 
+                        load.merge(date, minutesPerDay, Integer::sum)
+                    );
+                }
+            } else if (t.getDeadline() != null) {
+                // Se c'è solo deadline, attribuisci tutto al giorno della deadline
+                if (!t.getDeadline().isBefore(start) && !t.getDeadline().isAfter(end)) {
+                    load.merge(t.getDeadline(), minutes, Integer::sum);
+                }
+            }
+        }
+        return load;
+    }
+}

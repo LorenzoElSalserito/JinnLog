@@ -1,0 +1,85 @@
+{
+  "name": "jinnlog-desktop",
+  "version": "0.5.2",
+  "description": "JinnLog - Task Manager & Planner Desktop Application",
+  "author": "Lorenzo DM",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "build": "vite build",
+    "dist": "vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@uiw/react-md-editor": "^4.0.4",
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "chart.js": "^4.4.1",
+    "date-fns": "^4.1.0",
+    "i18next": "^23.12.2",
+    "i18next-browser-languagedetector": "^8.0.0",
+    "react": "^18.3.1",
+    "react-big-calendar": "^1.15.0",
+    "react-chartjs-2": "^5.2.0",
+    "react-datepicker": "^7.3.0",
+    "react-dom": "^18.3.1",
+    "react-dropzone": "^14.3.5",
+    "react-i18next": "^15.0.0",
+    "react-toastify": "^10.0.5",
+    "react-tooltip": "^5.26.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "electron": "^32.3.3",
+    "electron-builder": "^25.0.5",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.3",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "vite": "^5.4.2",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.lorenzodm.jinnlog",
+    "productName": "JinnLog",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "backend-libs/**/*",
+      "jre/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend-libs",
+        "to": "backend-libs"
+      },
+      {
+        "from": "jre",
+        "to": "jre"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "src/assets/icon.icns"
+    },
+    "win": {
+      "icon": "src/assets/icon.ico"
+    },
+    "linux": {
+      "icon": "src/assets/icon.png",
+      "category": "Office",
+      "target": [
+        "AppImage"
+      ]
+    }
+  }
+}

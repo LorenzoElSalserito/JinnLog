@@ -1,0 +1,92 @@
+name: Build Desktop
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: build/libs/*.jar
+
+  build-desktop:
+    needs: build-backend
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Serve Java anche qui per eseguire jlink
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download Backend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: desktop/backend-libs
+
+      # Generazione JRE Custom con jlink
+      # Includiamo i moduli standard necessari per Spring Boot + JDBC + Security
+      - name: Generate Custom JRE
+        run: |
+          jlink \
+          --add-modules java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.sql,java.xml,jdk.unsupported,jdk.crypto.ec,jdk.localedata \
+          --compress=2 \
+          --no-header-files \
+          --no-man-pages \
+          --strip-debug \
+          --output desktop/jre
+
+      - name: Install Dependencies
+        working-directory: ./desktop
+        run: npm ci
+
+      # Build e Package (usa lo script "dist" che abbiamo configurato)
+      - name: Build & Package Electron App
+        working-directory: ./desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist
+
+      - name: Upload Desktop Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-app-${{ matrix.os }}
+          path: |
+            desktop/dist-electron/*.AppImage
+            desktop/dist-electron/*.exe
+            desktop/dist-electron/*.zip
+            desktop/dist-electron/*.dmg

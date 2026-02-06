@@ -1,0 +1,155 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Badge, Button, Dropdown, Spinner } from "react-bootstrap";
+import { toast } from "react-toastify";
+import { jinn } from "../api/jinn.js";
+
+const DEFAULT_POLL_MS = 15000;
+
+function safeDateLabel(value) {
+    try {
+        if (!value) return "";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleString();
+    } catch {
+        return "";
+    }
+}
+
+export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
+    const [notifications, setNotifications] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const unreadCount = useMemo(
+        () => notifications.filter((n) => !n.read).length,
+        [notifications]
+    );
+
+    const loadNotifications = async (isBackground = false) => {
+        try {
+            if (!isBackground) {
+                setLoading(true);
+                setError(null);
+            }
+            const res = await jinn.notificationsList();
+            setNotifications(res?.notifications ?? []);
+            // Se il recupero ha successo, rimuoviamo eventuali errori precedenti
+            setError(null);
+        } catch (e) {
+            console.error(e);
+            // Mostriamo l'errore solo se non è un aggiornamento in background
+            if (!isBackground) {
+                setError(e);
+                setNotifications([]);
+            }
+        } finally {
+            if (!isBackground) setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadNotifications(false); // Caricamento iniziale (mostra spinner)
+        const id = setInterval(() => loadNotifications(true), pollMs); // Polling silenzioso
+        return () => clearInterval(id);
+    }, [pollMs]);
+
+    const markRead = async (id) => {
+        try {
+            await jinn.notificationsMarkRead(id);
+            setNotifications((prev) =>
+                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+            );
+        } catch (e) {
+            console.error(e);
+            toast.error("Errore aggiornamento notifica");
+        }
+    };
+
+    const markAllRead = async () => {
+        try {
+            await jinn.notificationsMarkAllRead();
+            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        } catch (e) {
+            console.error(e);
+            toast.error("Errore segna tutte come lette");
+        }
+    };
+
+    return (
+        <Dropdown align="end">
+            <Dropdown.Toggle
+                variant="outline-secondary"
+                size="sm"
+                className="position-relative"
+            >
+                <i className="bi bi-bell"></i>
+                {unreadCount > 0 && (
+                    <Badge
+                        bg="danger"
+                        pill
+                        className="position-absolute top-0 start-100 translate-middle"
+                    >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                    </Badge>
+                )}
+            </Dropdown.Toggle>
+
+            <Dropdown.Menu style={{ minWidth: 340 }}>
+                <div className="d-flex justify-content-between align-items-center px-3 py-2">
+                    <strong>Notifiche</strong>
+                    <Button
+                        variant="link"
+                        size="sm"
+                        className="text-decoration-none"
+                        onClick={markAllRead}
+                        disabled={notifications.length === 0}
+                    >
+                        Segna tutte come lette
+                    </Button>
+                </div>
+
+                <Dropdown.Divider />
+
+                {loading && (
+                    <div className="px-3 py-2 d-flex align-items-center gap-2">
+                        <Spinner size="sm" />
+                        <span>Caricamento...</span>
+                    </div>
+                )}
+
+                {!loading && error && (
+                    <div className="px-3 py-2 text-danger small">
+                        Notifiche non disponibili (API mancante o errore backend)
+                    </div>
+                )}
+
+                {!loading && !error && notifications.length === 0 && (
+                    <div className="px-3 py-2 text-muted small">
+                        Nessuna notifica
+                    </div>
+                )}
+
+                {!loading &&
+                    !error &&
+                    notifications.map((n) => (
+                        <Dropdown.Item
+                            key={n.id}
+                            className={`py-2 ${n.read ? "" : "fw-bold"}`}
+                            onClick={() => markRead(n.id)}
+                        >
+                            <div className="d-flex justify-content-between">
+                                <span>{n.title || "Notifica"}</span>
+                                <small className="text-muted">
+                                    {safeDateLabel(n.createdAt || n.created_at)}
+                                </small>
+                            </div>
+                            {n.message && (
+                                <div className="small text-muted">{n.message}</div>
+                            )}
+                        </Dropdown.Item>
+                    ))}
+            </Dropdown.Menu>
+        </Dropdown>
+    );
+}

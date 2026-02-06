@@ -1,0 +1,140 @@
+package com.lorenzodm.jinnlog.api.mapper;
+
+import com.lorenzodm.jinnlog.api.dto.response.AssetResponse;
+import com.lorenzodm.jinnlog.api.dto.response.TagResponse;
+import com.lorenzodm.jinnlog.api.dto.response.TaskChecklistItemResponse;
+import com.lorenzodm.jinnlog.api.dto.response.TaskResponse;
+import com.lorenzodm.jinnlog.core.entity.Task;
+import com.lorenzodm.jinnlog.core.entity.TaskChecklistItem;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Task Mapper v0.5.0
+ *
+ * @author Lorenzo DM
+ * @since 0.2.0
+ * @version 0.5.0
+ */
+@Component
+public class TaskMapper {
+
+    private final TagMapper tagMapper;
+    private final AssetMapper assetMapper;
+
+    public TaskMapper(TagMapper tagMapper, AssetMapper assetMapper) {
+        this.tagMapper = tagMapper;
+        this.assetMapper = assetMapper;
+    }
+
+    public TaskResponse toResponse(Task t) {
+        List<TagResponse> tags = t.getTags() != null
+                ? t.getTags().stream().map(tagMapper::toResponseLight).collect(Collectors.toList())
+                : List.of();
+
+        List<AssetResponse> assets = t.getAssets() != null
+                ? t.getAssets().stream().map(assetMapper::toResponse).collect(Collectors.toList())
+                : List.of();
+
+        List<TaskChecklistItemResponse> checklist = t.getChecklistItems() != null
+                ? t.getChecklistItems().stream().map(this::toChecklistResponse).collect(Collectors.toList())
+                : List.of();
+
+        List<String> blockerIds = t.getBlockers() != null
+                ? t.getBlockers().stream().map(Task::getId).collect(Collectors.toList())
+                : List.of();
+
+        return new TaskResponse(
+                t.getId(),
+                t.getTitle(),
+                t.getDescription(),
+                t.getStatus(),
+                t.getPriority(),
+                t.getDeadline(),
+                t.getOwner(),
+                t.getNotes(),
+                t.getMarkdownNotes(),
+                t.isArchived(),
+                t.getSortOrder(),
+                t.getCreatedAt(),
+                t.getUpdatedAt(),
+                t.getLastSyncedAt(),
+                t.getSyncStatus(),
+                t.getProject() != null ? t.getProject().getId() : null,
+                t.getAssignedTo() != null ? t.getAssignedTo().getId() : null,
+                t.getReminderDate(),
+                t.isReminderEnabled(),
+                t.isNotificationSent(),
+                t.getEstimatedMinutes(),
+                t.getActualMinutes(),
+                t.getAssetPath(),
+                t.getAssetFileName(),
+                t.getAssetMimeType(),
+                t.getAssetSizeBytes(),
+                tags,
+                assets,
+                checklist,
+                t.getTotalFocusTimeMs(),
+                t.isOverdue(),
+                t.getType().name(),
+                t.getScheduledStart(),
+                t.getScheduledEnd(),
+                t.isBlocked(),
+                blockerIds
+        );
+    }
+
+    public TaskResponse toResponseLight(Task t) {
+        return new TaskResponse(
+                t.getId(),
+                t.getTitle(),
+                t.getDescription(),
+                t.getStatus(),
+                t.getPriority(),
+                t.getDeadline(),
+                t.getOwner(),
+                t.getNotes(),
+                t.getMarkdownNotes(),
+                t.isArchived(),
+                t.getSortOrder(),
+                t.getCreatedAt(),
+                t.getUpdatedAt(),
+                t.getLastSyncedAt(),
+                t.getSyncStatus(),
+                t.getProject() != null ? t.getProject().getId() : null,
+                t.getAssignedTo() != null ? t.getAssignedTo().getId() : null,
+                t.getReminderDate(),
+                t.isReminderEnabled(),
+                t.isNotificationSent(),
+                t.getEstimatedMinutes(),
+                t.getActualMinutes(),
+                t.getAssetPath(),
+                t.getAssetFileName(),
+                t.getAssetMimeType(),
+                t.getAssetSizeBytes(),
+                null,
+                null,
+                null,
+                null,
+                t.isOverdue(),
+                t.getType().name(),
+                t.getScheduledStart(),
+                t.getScheduledEnd(),
+                t.isBlocked(),
+                null
+        );
+    }
+
+    private TaskChecklistItemResponse toChecklistResponse(TaskChecklistItem item) {
+        return new TaskChecklistItemResponse(
+                item.getId(),
+                item.getText(),
+                item.isDone(),
+                item.getSortOrder(),
+                item.getCreatedAt(),
+                item.getUpdatedAt()
+        );
+    }
+}
