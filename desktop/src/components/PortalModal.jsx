@@ -4,72 +4,57 @@ import { createPortal } from "react-dom";
 /**
  * PortalModal - Wrapper per modali che usa React Portal
  *
- * Versione 14.0 (Fix Focus Stealing):
- * - RIMOSSA chiamata a jinn.focusWindow() - causava loop di focus!
- * - Il FocusManager globale gestisce il focus per le text-box
- * - USA CLASSI BOOTSTRAP NATIVE per rispettare il tema chiaro/scuro
- * - Fornisce automaticamente modal-dialog e modal-content
- * - Supporta classi Bootstrap come modal-lg, modal-xl, modal-dialog-scrollable
- * - I children devono essere solo il contenuto interno (modal-header, modal-body, modal-footer)
- *
- * USAGE:
- * <PortalModal className="modal-lg" onClick={onClose}>
- *     <div className="modal-header">...</div>
- *     <div className="modal-body">...</div>
- *     <div className="modal-footer">...</div>
- * </PortalModal>
+ * Versione 14.1 (Fix Focus Stealing):
+ * - Separati useEffect per gestione eventi e focus iniziale.
+ * - Il focus viene impostato solo al primo mount, non ad ogni re-render.
+ * - Usato un ref per la callback onClick per evitare di rimetterla nelle dipendenze.
  *
  * @author Lorenzo DM
  * @since 0.6.13
- * @updated 0.6.14 - Fix focus stealing: rimossa chiamata a focusWindow()
+ * @updated 0.6.15
  */
 export default function PortalModal({ children, className = "", style = {}, onClick }) {
     const mount = document.body;
     const modalRef = useRef(null);
-    const trapRef = useRef(null);
-    // Usa useRef per tracciare se l'effetto è già stato eseguito
-    const initializedRef = useRef(false);
+    const onClickRef = useRef(onClick);
 
-    // Memoizza la callback per ESC
-    const handleEsc = useCallback((e) => {
-        if (e.key === "Escape" && onClick) {
-            onClick();
-        }
+    // Mantiene la ref sempre aggiornata con l'ultima callback
+    useEffect(() => {
+        onClickRef.current = onClick;
     }, [onClick]);
 
+    // Effetto per la gestione degli eventi (ESC e backdrop)
     useEffect(() => {
-        // Evita di eseguire più volte
-        if (initializedRef.current) return;
-        initializedRef.current = true;
+        const handleEsc = (e) => {
+            if (e.key === "Escape" && onClickRef.current) {
+                onClickRef.current();
+            }
+        };
 
+        document.addEventListener("keydown", handleEsc);
+        return () => document.removeEventListener("keydown", handleEsc);
+    }, []); // Eseguito solo una volta
+
+    // Effetto per il setup/teardown della modale (stile e focus)
+    useEffect(() => {
         const originalOverflow = mount.style.overflow;
         mount.style.overflow = "hidden";
+        mount.classList.add("modal-open");
 
-        // 1. Force Reflow
+        // Forza reflow per transizioni
         if (modalRef.current) {
             void modalRef.current.offsetHeight;
         }
 
-        // 2. RIMOSSO: NON chiamare jinn.focusWindow() qui!
-        // Questo causava un loop di focus che rubava il focus dalle text-box.
-        // Il FocusManager globale gestisce il focus per le text-box automaticamente.
-        //
-        // VECCHIO CODICE (RIMOSSO):
-        // if (window.jinn && window.jinn.focusWindow) {
-        //     window.jinn.focusWindow();
-        // }
-
-        // 3. Focus Management - usa un approccio più gentile
+        // Imposta il focus solo al mount iniziale
         const timer = setTimeout(() => {
             if (modalRef.current) {
-                // Cerca l'input con autofocus o il primo input
-                const autoFocus = modalRef.current.querySelector('[autofocus], [data-autofocus="true"]');
-                const firstInput = modalRef.current.querySelector('input:not([type=hidden]), textarea, select');
-
-                const targetEl = autoFocus || firstInput;
+                const autoFocusEl = modalRef.current.querySelector('[autofocus], [data-autofocus="true"]');
+                const firstFocusableEl = modalRef.current.querySelector('input:not([type=hidden]), textarea, select, button');
+                
+                const targetEl = autoFocusEl || firstFocusableEl;
 
                 if (targetEl) {
-                    // Focus diretto senza blur/trap tricks
                     try {
                         targetEl.focus({ preventScroll: true });
                     } catch (e) {
@@ -77,37 +62,29 @@ export default function PortalModal({ children, className = "", style = {}, onCl
                     }
                 }
             }
-        }, 100); // Delay leggermente più lungo per stabilità
-
-        // 4. ESC key handler
-        document.addEventListener("keydown", handleEsc);
+        }, 100);
 
         return () => {
             clearTimeout(timer);
-            document.removeEventListener("keydown", handleEsc);
             mount.style.overflow = originalOverflow;
             mount.classList.remove("modal-open");
-            document.querySelectorAll(".modal-backdrop").forEach(el => el.remove());
-            initializedRef.current = false;
+            // Il backdrop viene gestito dal componente stesso, non serve rimuoverlo globalmente
         };
-    }, [mount, handleEsc]); // Dipende solo da mount e handleEsc memoizzato
+    }, [mount]); // Eseguito solo al mount/unmount
 
-    // Handler per click sul backdrop
     const handleBackdropClick = useCallback((e) => {
-        if (e.target === e.currentTarget && onClick) {
-            onClick();
+        if (e.target === e.currentTarget && onClickRef.current) {
+            onClickRef.current();
         }
-    }, [onClick]);
+    }, []);
 
-    // Handler per stopPropagation sul dialog
     const handleDialogClick = useCallback((e) => {
         e.stopPropagation();
     }, []);
 
-    // Usa le classi Bootstrap native per rispettare il tema!
     return createPortal(
         <div
-            className="modal show d-block"
+            className="modal fade show d-block"
             style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 10000 }}
             onClick={handleBackdropClick}
             data-portal-modal="true"
@@ -118,15 +95,6 @@ export default function PortalModal({ children, className = "", style = {}, onCl
                 style={style}
                 onClick={handleDialogClick}
             >
-                {/* Input Trap Invisibile - RIMOSSO: non serve più e può causare problemi
-                <input
-                    ref={trapRef}
-                    style={{ opacity: 0, position: 'absolute', pointerEvents: 'none' }}
-                    readOnly
-                    tabIndex={-1}
-                />
-                */}
-
                 <div
                     className="modal-content"
                     style={{

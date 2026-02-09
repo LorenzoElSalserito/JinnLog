@@ -71,6 +71,9 @@ public class Asset extends BaseSyncEntity {
     @JoinColumn(name = "task_id")
     private Task task;
 
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
     /**
      * Default constructor.
      * Initializes ID via superclass.
@@ -185,6 +188,16 @@ public class Asset extends BaseSyncEntity {
 
     public void setTask(Task task) {
         this.task = task;
+    }
+
+    @Override
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    @Override
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     // Helper methods

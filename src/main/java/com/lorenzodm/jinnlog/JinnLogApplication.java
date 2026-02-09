@@ -27,9 +27,11 @@ import java.nio.file.Paths;
  * Modalità operative:
  * - desktop: embedded in Electron, porta dinamica, SQLite locale
  * - web: standalone server, porta fissa, PostgreSQL (futuro)
+ *CD DESKTOP
+ *
  *
  * @author Lorenzo DM
- * @since 1.0.0
+ * @since 0.0.0
  */
 @SpringBootApplication
 public class JinnLogApplication {

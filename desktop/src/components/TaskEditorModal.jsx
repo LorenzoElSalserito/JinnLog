@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -51,6 +51,36 @@ export default function TaskEditorModal({
     const notesEndRef = useRef(null);
     const currentUserId = jinn.getCurrentUser();
 
+    const resetForm = useCallback(() => {
+        setTitle("");
+        setDescription("");
+        setMarkdownNotes("");
+        setStatus("TODO");
+        setPriority("MED");
+        setDeadline(null);
+        setOwner("");
+        setTags([]);
+        setUploadedFiles([]);
+        setExistingAssets([]);
+        setErrors({});
+        setActiveTab("details");
+        setTaskNotes([]);
+        setNewNoteContent("");
+    }, []);
+
+    const loadTaskNotes = useCallback(async (taskId) => {
+        try {
+            setLoadingNotes(true);
+            // Use new specific endpoint
+            const notes = await jinn.notesListTask(taskId);
+            setTaskNotes(notes);
+        } catch (e) {
+            console.error("Errore caricamento note:", e);
+        } finally {
+            setLoadingNotes(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (show && task) {
             setTitle(task.title || "");
@@ -68,26 +98,13 @@ export default function TaskEditorModal({
         } else if (show) {
             resetForm();
         }
-    }, [show, task]);
+    }, [show, task, loadTaskNotes, resetForm]);
 
     useEffect(() => {
         if (activeTab === "notes" && notesEndRef.current) {
             notesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
     }, [taskNotes, activeTab]);
-
-    const loadTaskNotes = async (taskId) => {
-        try {
-            setLoadingNotes(true);
-            // Use new specific endpoint
-            const notes = await jinn.notesListTask(taskId);
-            setTaskNotes(notes);
-        } catch (e) {
-            console.error("Errore caricamento note:", e);
-        } finally {
-            setLoadingNotes(false);
-        }
-    };
 
     const handleSendNote = async (e) => {
         e.preventDefault();
@@ -124,23 +141,6 @@ export default function TaskEditorModal({
         }
     };
 
-    const resetForm = () => {
-        setTitle("");
-        setDescription("");
-        setMarkdownNotes("");
-        setStatus("TODO");
-        setPriority("MED");
-        setDeadline(null);
-        setOwner("");
-        setTags([]);
-        setUploadedFiles([]);
-        setExistingAssets([]);
-        setErrors({});
-        setActiveTab("details");
-        setTaskNotes([]);
-        setNewNoteContent("");
-    };
-
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop: (acceptedFiles) => {
             setUploadedFiles((prev) => [...prev, ...acceptedFiles]);
@@ -169,6 +169,11 @@ export default function TaskEditorModal({
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
+
+    const handleClose = useCallback(() => {
+        resetForm();
+        onHide();
+    }, [resetForm, onHide]);
 
     const handleSave = async () => {
         if (!validateForm()) {
@@ -204,11 +209,6 @@ export default function TaskEditorModal({
         } finally {
             setIsSubmitting(false);
         }
-    };
-
-    const handleClose = () => {
-        resetForm();
-        onHide();
     };
 
     const removeFile = (index) => {
