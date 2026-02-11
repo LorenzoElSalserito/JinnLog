@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Dropdown, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { jinn } from "../api/jinn.js";
+import { useTranslation } from 'react-i18next';
 
 const DEFAULT_POLL_MS = 15000;
 
@@ -17,6 +18,7 @@ function safeDateLabel(value) {
 }
 
 export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
+    const { t } = useTranslation();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -62,7 +64,7 @@ export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
             );
         } catch (e) {
             console.error(e);
-            toast.error("Errore aggiornamento notifica");
+            toast.error(t("Error updating notification"));
         }
     };
 
@@ -72,7 +74,7 @@ export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
         } catch (e) {
             console.error(e);
-            toast.error("Errore segna tutte come lette");
+            toast.error(t("Error marking all as read"));
         }
     };
 
@@ -97,7 +99,7 @@ export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
 
             <Dropdown.Menu style={{ minWidth: 340 }}>
                 <div className="d-flex justify-content-between align-items-center px-3 py-2">
-                    <strong>Notifiche</strong>
+                    <strong>{t("Notifications")}</strong>
                     <Button
                         variant="link"
                         size="sm"
@@ -105,7 +107,7 @@ export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
                         onClick={markAllRead}
                         disabled={notifications.length === 0}
                     >
-                        Segna tutte come lette
+                        {t("Mark all as read")}
                     </Button>
                 </div>
 
@@ -114,19 +116,19 @@ export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
                 {loading && (
                     <div className="px-3 py-2 d-flex align-items-center gap-2">
                         <Spinner size="sm" />
-                        <span>Caricamento...</span>
+                        <span>{t("Loading...")}</span>
                     </div>
                 )}
 
                 {!loading && error && (
                     <div className="px-3 py-2 text-danger small">
-                        Notifiche non disponibili (API mancante o errore backend)
+                        {t("Notifications unavailable (API missing or backend error)")}
                     </div>
                 )}
 
                 {!loading && !error && notifications.length === 0 && (
                     <div className="px-3 py-2 text-muted small">
-                        Nessuna notifica
+                        {t("No notifications")}
                     </div>
                 )}
 
@@ -139,7 +141,7 @@ export default function NotificationCenter({ pollMs = DEFAULT_POLL_MS }) {
                             onClick={() => markRead(n.id)}
                         >
                             <div className="d-flex justify-content-between">
-                                <span>{n.title || "Notifica"}</span>
+                                <span>{n.title || t("Notification")}</span>
                                 <small className="text-muted">
                                     {safeDateLabel(n.createdAt || n.created_at)}
                                 </small>

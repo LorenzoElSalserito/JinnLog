@@ -79,13 +79,13 @@ export default function SettingsPage({ shell }) {
                 }
             } catch (e) {
                 console.error("[SettingsPage] Errore caricamento:", e);
-                toast.error("Errore caricamento impostazioni");
+                toast.error(t("Error loading settings"));
             } finally {
                 setLoading(false);
             }
         }
         loadSettings();
-    }, [i18n]);
+    }, [i18n, t]);
 
     // ========================================
     // Handlers
@@ -132,14 +132,14 @@ export default function SettingsPage({ shell }) {
             toast.success(t("Saved"));
         } catch (e) {
             console.error("[SettingsPage] Errore salvataggio:", e);
-            toast.error("Errore salvataggio: " + e.message);
+            toast.error(t("Error saving settings") + ": " + e.message);
         } finally {
             setSaving(false);
         }
     };
 
     const handleReset = async () => {
-        if (!confirm("Sei sicuro di voler ripristinare le impostazioni di default?")) {
+        if (!confirm(t("Are you sure you want to restore default settings?"))) {
             return;
         }
 
@@ -155,10 +155,10 @@ export default function SettingsPage({ shell }) {
             if (defaults.language) {
                 i18n.changeLanguage(defaults.language);
             }
-            toast.success("Impostazioni ripristinate");
+            toast.success(t("Settings restored"));
         } catch (e) {
             console.error("[SettingsPage] Errore reset:", e);
-            toast.error("Errore reset: " + e.message);
+            toast.error(t("Error resetting settings") + ": " + e.message);
         }
     };
 
@@ -167,9 +167,9 @@ export default function SettingsPage({ shell }) {
             if (jinn.isElectron()) {
                 const result = await window.jinn.ipc.invoke('db:export');
                 if (result.success) {
-                    toast.success(`Database esportato in: ${result.path}`);
+                    toast.success(`${t("Database exported to")}: ${result.path}`);
                 } else if (result.error) {
-                    toast.error("Errore export: " + result.error);
+                    toast.error(t("Export error") + ": " + result.error);
                 }
             } else {
                 try {
@@ -180,20 +180,20 @@ export default function SettingsPage({ shell }) {
                     a.download = `jinnlog-backup-${new Date().toISOString().split("T")[0]}.db`;
                     a.click();
                     URL.revokeObjectURL(url);
-                    toast.success("Database scaricato");
+                    toast.success(t("Database downloaded"));
                 } catch (e) {
                     await jinn.exportJsonDialog();
-                    toast.success("Database esportato (JSON)");
+                    toast.success(t("Database exported (JSON)"));
                 }
             }
         } catch (e) {
             console.error("[SettingsPage] Errore export:", e);
-            toast.error("Errore export: " + e.message);
+            toast.error(t("Export error") + ": " + e.message);
         }
     };
 
     const handleImportDb = async () => {
-        if (!confirm("ATTENZIONE: L'importazione sovrascriverà TUTTI i dati attuali. Vuoi continuare?")) {
+        if (!confirm(t("WARNING: Importing will overwrite ALL current data. Do you want to continue?"))) {
             return;
         }
 
@@ -201,10 +201,10 @@ export default function SettingsPage({ shell }) {
             if (jinn.isElectron()) {
                 const result = await window.jinn.ipc.invoke('db:import');
                 if (result.success) {
-                    toast.success("Database importato. Riavvio applicazione...");
+                    toast.success(t("Database imported. Restarting application..."));
                     setTimeout(() => window.location.reload(), 2000);
                 } else if (result.error) {
-                    toast.error("Errore import: " + result.error);
+                    toast.error(t("Import error") + ": " + result.error);
                 }
             } else {
                 const input = document.createElement("input");
@@ -215,10 +215,10 @@ export default function SettingsPage({ shell }) {
                     if (file) {
                         try {
                             await jinn.importDatabase(file);
-                            toast.success("Database importato. Ricarica la pagina.");
+                            toast.success(t("Database imported. Reload the page."));
                             setTimeout(() => window.location.reload(), 2000);
                         } catch (err) {
-                            toast.error("Errore import: " + err.message);
+                            toast.error(t("Import error") + ": " + err.message);
                         }
                     }
                 };
@@ -226,12 +226,12 @@ export default function SettingsPage({ shell }) {
             }
         } catch (e) {
             console.error("[SettingsPage] Errore import:", e);
-            toast.error("Errore import: " + e.message);
+            toast.error(t("Import error") + ": " + e.message);
         }
     };
 
     const handleRotateCalendarToken = async () => {
-        if (!confirm("Rigenerando il token, dovrai aggiornare il link su tutti i tuoi calendari esterni. Continuare?")) return;
+        if (!confirm(t("Regenerating the token will require updating the link on all your external calendars. Continue?"))) return;
         
         try {
             const userId = jinn.getCurrentUser();
@@ -244,10 +244,10 @@ export default function SettingsPage({ shell }) {
                 const data = await response.json();
                 const baseUrl = await jinn.init().then(r => r.baseUrl);
                 setIcalUrl(`${baseUrl}/calendar/${userId}/feed.ics?token=${data.token}`);
-                toast.success("Token rigenerato");
+                toast.success(t("Token regenerated"));
             }
         } catch (e) {
-            toast.error("Errore rotazione token");
+            toast.error(t("Error rotating token"));
         }
     };
 

@@ -67,7 +67,7 @@ const AppState = {
  * @updated 0.7.0 - Hard Reload on Logout
  */
 export default function App() {
-    const { i18n } = useTranslation();
+    const { t, i18n } = useTranslation();
     
     // ========================================
     // State
@@ -135,7 +135,7 @@ export default function App() {
                     setCurrentUser(user);
                     setAppState(AppState.ENTER_APP);
                     console.log("[App] Autologin riuscito:", user.displayName);
-                    toast.success(`Bentornato, ${user.displayName || user.username}!`);
+                    toast.success(`${t("Welcome back")}, ${user.displayName || user.username}!`);
                     return;
                 } else {
                     console.warn("[App] Autologin fallito: utente non valido");
@@ -152,7 +152,7 @@ export default function App() {
             setError(e.message || "Errore durante l'avvio dell'applicazione");
             setAppState(AppState.BOOTSTRAP_ERROR);
         }
-    }, [i18n]);
+    }, [i18n, t]);
 
     // ========================================
     // Effects
@@ -192,7 +192,7 @@ export default function App() {
         console.log("[App] Profilo selezionato:", user.displayName || user.username);
         setCurrentUser(user);
         setAppState(AppState.ENTER_APP);
-        toast.success(`Benvenuto, ${user.displayName || user.username}!`);
+        toast.success(`${t("Welcome")}, ${user.displayName || user.username}!`);
     };
 
     /**
