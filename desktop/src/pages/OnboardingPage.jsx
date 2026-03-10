@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
  *
  * @author Lorenzo DM
  * @since 0.3.0
+ * @version 0.5.3
  */
 export default function OnboardingPage({ onProfileSelected, bootstrapData, onRetry }) {
     const { t, i18n } = useTranslation();
@@ -31,8 +32,13 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
         username: "",
         displayName: "",
         email: "",
+        password: "",
     });
     const [formErrors, setFormErrors] = useState({});
+
+    // Login state
+    const [selectedUserId, setSelectedUserId] = useState(null);
+    const [loginPassword, setLoginPassword] = useState("");
 
     // Preferenze
     const [autologinEnabled, setAutologinEnabled] = useState(
@@ -55,7 +61,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
         if (!hasProfiles && view !== "create") {
             setView("create");
             // Reset form data per evitare residui
-            setFormData({ username: "", displayName: "", email: "" });
+            setFormData({ username: "", displayName: "", email: "", password: "" });
         }
     }, [hasProfiles, view]);
 
@@ -72,18 +78,18 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
     // Handlers
     // ========================================
 
-    /**
-     * Seleziona un profilo esistente
-     */
-    const handleSelectProfile = async (userId) => {
+    const handleLogin = async (userId) => {
+        if (!loginPassword) {
+            setError(t("Password is required"));
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
         try {
-            // Seleziona profilo nel backend (aggiorna lastLoginAt)
-            const user = await jinn.bootstrapSelectProfile(userId);
+            const user = await jinn.bootstrapLogin(userId, loginPassword);
 
-            // Aggiorna preferenze se autologin è attivo
             if (autologinEnabled) {
                 await jinn.bootstrapUpdatePreferences({
                     lastUserId: userId,
@@ -92,11 +98,10 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 jinn.setLocalPreferences({ autologinEnabled: true, lastUserId: userId });
             }
 
-            // Notifica il parent
             onProfileSelected(user);
         } catch (e) {
-            console.error("[Onboarding] Errore selezione profilo:", e);
-            setError(t("Unable to select profile. Please try again."));
+            console.error("[Onboarding] Login error:", e);
+            setError(t("Invalid password. Please try again."));
             setLoading(false);
         }
     };
@@ -123,7 +128,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
             
             // Se non ci sono più utenti, vai a create
             if (updatedUsers.length === 0) {
-                setFormData({ username: "", displayName: "", email: "" });
+                setFormData({ username: "", displayName: "", email: "", password: "" });
                 setView("create");
             }
         } catch (e) {
@@ -157,6 +162,17 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             errors.email = t("Invalid email");
         }
+        
+        // Password validation
+        if (!formData.password) {
+            errors.password = t("Password is required");
+        } else {
+            if (formData.password.length < 8) {
+                errors.password = t("Password must be at least 8 characters");
+            } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])/.test(formData.password)) {
+                errors.password = t("Password must contain uppercase, lowercase, number and special char");
+            }
+        }
 
         if (Object.keys(errors).length > 0) {
             setFormErrors(errors);
@@ -173,6 +189,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 username: formData.username.trim(),
                 displayName: formData.displayName.trim(),
                 email: formData.email.trim() || null,
+                password: formData.password,
             });
 
             // Seleziona automaticamente il nuovo profilo
@@ -228,11 +245,16 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 {localUsers.map((user) => (
                     <div
                         key={user.id}
-                        className={`profile-card ${user.id === lastUserId ? "last-used" : ""}`}
-                        onClick={() => handleSelectProfile(user.id)}
+                        className={`profile-card ${user.id === lastUserId ? "last-used" : ""} ${selectedUserId === user.id ? "selected" : ""}`}
+                        onClick={() => {
+                            if (selectedUserId === user.id) return;
+                            setSelectedUserId(user.id);
+                            setLoginPassword("");
+                            setError(null);
+                        }}
                         role="button"
                         tabIndex={0}
-                        onKeyPress={(e) => e.key === "Enter" && handleSelectProfile(user.id)}
+                        onKeyPress={(e) => e.key === "Enter" && setSelectedUserId(user.id)}
                     >
                         <div className="profile-avatar">
                             {user.avatarPath ? (
@@ -271,6 +293,36 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                                 <i className="bi bi-chevron-right"></i>
                             </div>
                         </div>
+
+                        {selectedUserId === user.id && (
+                            <div className="profile-login-form" onClick={e => e.stopPropagation()}>
+                                <input 
+                                    type="password" 
+                                    className="form-control form-control-sm mb-2" 
+                                    placeholder={t("Password")}
+                                    value={loginPassword}
+                                    onChange={e => setLoginPassword(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && handleLogin(user.id)}
+                                    autoFocus
+                                />
+                                <div className="d-flex gap-2">
+                                    <button 
+                                        className="btn btn-sm btn-primary flex-grow-1"
+                                        onClick={() => handleLogin(user.id)}
+                                        disabled={loading}
+                                    >
+                                        {loading ? <span className="spinner-border spinner-border-sm"></span> : t("Login")}
+                                    </button>
+                                    <button 
+                                        className="btn btn-sm btn-outline-secondary"
+                                        onClick={() => setSelectedUserId(null)}
+                                        disabled={loading}
+                                    >
+                                        {t("Cancel")}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -366,7 +418,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 </div>
 
                 {/* Email (opzionale) */}
-                <div className="mb-4">
+                <div className="mb-3">
                     <label htmlFor="email" className="form-label">
                         {t("Email (optional)")}
                     </label>
@@ -385,6 +437,25 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                     <div className="form-text">
                         {t("For future sync/cloud features")}
                     </div>
+                </div>
+
+                {/* Password */}
+                <div className="mb-4">
+                    <label htmlFor="password" className="form-label">
+                        {t("Password")} <span className="text-danger">*</span>
+                    </label>
+                    <input
+                        type="password"
+                        className={`form-control ${formErrors.password ? "is-invalid" : ""}`}
+                        id="password"
+                        placeholder={t("Min. 8 chars, A-Z, a-z, 0-9, !@#")}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        disabled={loading}
+                    />
+                    {formErrors.password && (
+                        <div className="invalid-feedback">{formErrors.password}</div>
+                    )}
                 </div>
 
                 {/* Checkbox autologin */}
@@ -499,7 +570,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
 
                 {/* Content */}
                 <div className="onboarding-content">
-                    {loading && view === "list" ? (
+                    {loading && view === "list" && !selectedUserId ? (
                         <div className="text-center py-4">
                             <div className="spinner-border text-primary mb-3"></div>
                             <p className="text-muted">{t("Processing...")}</p>
@@ -552,6 +623,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 
                 .profile-card {
                     display: flex;
+                    flex-wrap: wrap;
                     align-items: center;
                     gap: 16px;
                     padding: 16px;
@@ -567,6 +639,12 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                     background: #f8f9fa;
                 }
                 
+                .profile-card.selected {
+                    border-color: #667eea;
+                    background: #f8f9fa;
+                    cursor: default;
+                }
+
                 .profile-card.last-used {
                     border-color: #667eea;
                     background: linear-gradient(135deg, rgba(102,126,234,0.05) 0%, rgba(118,75,162,0.05) 100%);
@@ -610,6 +688,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                     display: flex;
                     align-items: center;
                     gap: 8px;
+                    margin-left: auto;
                 }
                 
                 .delete-btn {
@@ -630,6 +709,13 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 .profile-card:hover .profile-select-icon {
                     transform: translateX(4px);
                     color: #667eea;
+                }
+
+                .profile-login-form {
+                    width: 100%;
+                    margin-top: 12px;
+                    padding-top: 12px;
+                    border-top: 1px solid #e9ecef;
                 }
                 
                 @media (max-width: 480px) {

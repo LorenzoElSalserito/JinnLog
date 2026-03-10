@@ -115,9 +115,9 @@ export default function App() {
             const { autologinEnabled, lastUserId } = bootstrap.preferences;
             const localPrefs = jinn.getLocalPreferences();
 
-            // Apply language preference
-            if (localPrefs.language) {
-                i18n.changeLanguage(localPrefs.language);
+            // Apply language preference ONLY if different
+            if (localPrefs.language && i18n.language !== localPrefs.language) {
+                await i18n.changeLanguage(localPrefs.language);
             }
 
             // Use local preferences as fallback for autologin
@@ -152,7 +152,7 @@ export default function App() {
             setError(e.message || "Errore durante l'avvio dell'applicazione");
             setAppState(AppState.BOOTSTRAP_ERROR);
         }
-    }, [i18n, t]);
+    }, []); // Removed i18n and t from dependencies to avoid loop
 
     // ========================================
     // Effects

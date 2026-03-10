@@ -1,8 +1,11 @@
 {
   "name": "jinnlog-desktop",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "JinnLog - Task Manager & Planner Desktop Application",
-  "author": "Lorenzo DM",
+  "author": {
+    "name": "Lorenzo DM",
+    "email": "commercial.lorenzodm@gmail.com"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/LorenzoElSalserito/JinnLog"
@@ -82,7 +85,9 @@
       "icon": "src/assets/icon.png",
       "category": "Office",
       "target": [
-        "AppImage"
+        "AppImage",
+        "snap",
+        "deb"
       ]
     }
   }

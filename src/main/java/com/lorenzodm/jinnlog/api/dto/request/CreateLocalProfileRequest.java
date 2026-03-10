@@ -2,6 +2,7 @@ package com.lorenzodm.jinnlog.api.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -39,5 +40,12 @@ public record CreateLocalProfileRequest(
          * Path avatar locale (opzionale)
          */
         @Size(max = 255)
-        String avatarPath
+        String avatarPath,
+
+        /**
+         * Password (opzionale, se non fornita usa default)
+         */
+        @Size(min = 8, max = 100, message = "Password deve essere tra 8 e 100 caratteri")
+        @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z\\d]).+$", message = "La password deve contenere maiuscole, minuscole, numeri e caratteri speciali")
+        String password
 ) {}

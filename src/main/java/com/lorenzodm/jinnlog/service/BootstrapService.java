@@ -18,7 +18,7 @@ import com.lorenzodm.jinnlog.core.entity.User;
  *
  * @author Lorenzo DM
  * @since 0.3.0
- * @version 0.4.0
+ * @version 0.5.3
  */
 public interface BootstrapService {
 
@@ -44,6 +44,15 @@ public interface BootstrapService {
      * @return User selezionato con lastLoginAt aggiornato
      */
     User selectProfile(String userId);
+
+    /**
+     * Effettua il login con password e seleziona il profilo
+     *
+     * @param userId ID del profilo
+     * @param password Password in chiaro
+     * @return User autenticato e selezionato
+     */
+    User login(String userId, String password);
 
     /**
      * Elimina (disattiva) un profilo locale

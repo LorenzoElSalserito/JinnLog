@@ -344,7 +344,7 @@ export const jinn = {
 
     /**
      * Creates a new local profile (no password).
-     * @param {Object} data - { username, displayName, email?, avatarPath? }
+     * @param {Object} data - { username, displayName, email?, avatarPath?, password? }
      */
     bootstrapCreateProfile: (data) => apiRequest('/bootstrap/profiles', {
         method: 'POST',
@@ -364,6 +364,23 @@ export const jinn = {
         // Save locally for autologin
         saveLocalPreference(STORAGE_KEY_LAST_USER, userId);
         console.log('[JinnLog API] Profilo selezionato:', user.displayName || user.username);
+        return user;
+    },
+
+    /**
+     * Authenticates a user with password and selects the profile.
+     * @param {string} userId - The user ID.
+     * @param {string} password - The password.
+     */
+    bootstrapLogin: async (userId, password) => {
+        const user = await apiRequest('/bootstrap/login', {
+            method: 'POST',
+            body: { userId, password },
+        });
+        CURRENT_USER_ID = user.id;
+        // Save locally for autologin
+        saveLocalPreference(STORAGE_KEY_LAST_USER, userId);
+        console.log('[JinnLog API] Login riuscito:', user.displayName || user.username);
         return user;
     },
 

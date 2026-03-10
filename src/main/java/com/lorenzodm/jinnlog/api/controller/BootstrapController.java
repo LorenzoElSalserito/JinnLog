@@ -1,6 +1,7 @@
 package com.lorenzodm.jinnlog.api.controller;
 
 import com.lorenzodm.jinnlog.api.dto.request.CreateLocalProfileRequest;
+import com.lorenzodm.jinnlog.api.dto.request.LoginRequest;
 import com.lorenzodm.jinnlog.api.dto.request.UpdateAppPreferencesRequest;
 import com.lorenzodm.jinnlog.api.dto.response.BootstrapResponse;
 import com.lorenzodm.jinnlog.api.dto.response.UserResponse;
@@ -31,7 +32,7 @@ import java.net.URI;
  *
  * @author Lorenzo DM
  * @since 0.3.0
- * @version 0.5.2
+ * @version 0.5.3
  */
 @RestController
 @RequestMapping("/api/bootstrap")
@@ -100,6 +101,22 @@ public class BootstrapController {
         log.info("Selezione profilo: {}", userId);
         User selected = bootstrapService.selectProfile(userId);
         return ResponseEntity.ok(userMapper.toResponse(selected));
+    }
+
+    /**
+     * POST /api/bootstrap/login
+     * <p>
+     * Authenticates a user with password and selects the profile.
+     * </p>
+     *
+     * @param request The login request containing userId and password.
+     * @return 200 OK with the authenticated {@link UserResponse}.
+     */
+    @PostMapping("/login")
+    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
+        log.info("Richiesta login per utente: {}", request.userId());
+        User user = bootstrapService.login(request.userId(), request.password());
+        return ResponseEntity.ok(userMapper.toResponse(user));
     }
 
     /**

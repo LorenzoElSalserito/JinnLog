@@ -526,5 +526,12 @@
   "Notifications": "Notifiche",
   "Next": "Successivo",
   "Panel": "Pannello",
-  "Download": "Scarica"
+  "Download": "Scarica",
+  "Password required": "Password obbligatoria",
+  "Password must be at least 8 characters": "La password deve essere di almeno 8 caratteri",
+  "Password must contain uppercase, lowercase, number and special char": "La password deve contenere maiuscole, minuscole, numeri e caratteri speciali",
+  "Invalid password": "Password non valida",
+  "Invalid password. Please try again.": "Password non valida. Riprova.",
+  "Password is required": "La password è obbligatoria",
+  "Min. 8 chars, A-Z, a-z, 0-9, !@#": "Min. 8 car., A-Z, a-z, 0-9, !@#"
 }

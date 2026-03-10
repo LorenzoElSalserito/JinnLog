@@ -6,6 +6,7 @@ import com.lorenzodm.jinnlog.api.dto.response.BootstrapResponse;
 import com.lorenzodm.jinnlog.api.dto.response.UserResponse;
 import com.lorenzodm.jinnlog.api.exception.ConflictException;
 import com.lorenzodm.jinnlog.api.exception.ResourceNotFoundException;
+import com.lorenzodm.jinnlog.api.exception.UnauthorizedException;
 import com.lorenzodm.jinnlog.api.mapper.UserMapper;
 import com.lorenzodm.jinnlog.core.entity.AppPreference;
 import com.lorenzodm.jinnlog.core.entity.Asset;
@@ -41,7 +42,7 @@ import java.util.UUID;
  *
  * @author Lorenzo DM
  * @since 0.3.0
- * @version 0.5.2
+ * @version 0.5.3
  */
 @Service
 @Transactional
@@ -172,7 +173,13 @@ public class BootstrapServiceImpl implements BootstrapService {
         user.setDisplayName(request.displayName());
         user.setEmail(request.email());
         user.setAvatarPath(request.avatarPath());
-        user.setPasswordHash(passwordService.hash(DEFAULT_LOCAL_PASSWORD));
+        
+        // Use provided password or default
+        String passwordToHash = (request.password() != null && !request.password().isBlank()) 
+                ? request.password() 
+                : DEFAULT_LOCAL_PASSWORD;
+        user.setPasswordHash(passwordService.hash(passwordToHash));
+        
         user.setActive(true);
         user.setSyncStatus("LOCAL_ONLY");
         user.setLastLoginAt(Instant.now()); // Set as "just used"
@@ -215,6 +222,28 @@ public class BootstrapServiceImpl implements BootstrapService {
 
         log.info("Profilo selezionato: {} ({})", saved.getDisplayName(), saved.getId());
         return saved;
+    }
+
+    @Override
+    public User login(String userId, String password) {
+        log.info("Tentativo login per utente: {}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profilo non trovato: " + userId));
+
+        if (!user.isActive()) {
+            throw new ConflictException("Profilo non attivo: " + userId);
+        }
+
+        // Verify password
+        String inputHash = passwordService.hash(password);
+        if (!inputHash.equals(user.getPasswordHash())) {
+            log.warn("Login fallito per utente {}: password errata", userId);
+            throw new UnauthorizedException("Password non valida");
+        }
+
+        // If password is correct, proceed with selection logic
+        return selectProfile(userId);
     }
 
     /**

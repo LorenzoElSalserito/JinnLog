@@ -47,3 +47,4 @@ desktop/*.local
 ### OS Generated ###
 .DS_Store
 Thumbs.db
+/ROADMAP.md
