@@ -51,6 +51,3 @@ Thumbs.db
 ### Local Configuration & Logs ###
 local.properties
 *.log
-
-### Project Documents / Internal ###
-PRD_JINNLOG.md
