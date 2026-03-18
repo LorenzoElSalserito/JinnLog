@@ -117,6 +117,12 @@ function requestWindowKeyFocusSync(reason = 'textbox') {
   }
 
   try { window.focus?.(); } catch (e) { /* ignore */ }
+
+  // Se dopo forceFocusSync il document ancora non ha focus,
+  // il problema è webContents key focus → usa ensureWebContentFocus
+  if (!document.hasFocus()) {
+    ensureWebContentFocus(`${reason}-fallback`);
+  }
 }
 
 /**
@@ -188,21 +194,31 @@ export default function FocusManager() {
           return;
         }
 
-        // Il focus non è arrivato - QUESTO È IL CASO PROBLEMATICO
+        // Il focus non è arrivato - recovery
         console.log('[FocusManager] Focus assist needed - focus did not arrive on textbox');
 
-        // PRIMA: assicurati che webContents abbia il key focus
-        // Questo è il FIX per il problema "window focused ma webContents no"
-        ensureWebContentFocus('focus-assist');
+        // Step 1: Prova focus diretto (nessun IPC)
+        placeCaretAtEnd(targetEl);
 
-        // POI: applica focus alla text-box dopo un breve delay
-        // per dare tempo a webContents.focus() di completare
+        // Step 2: Verifica se ha funzionato dopo un tick
         setTimeout(() => {
-          if (targetEl.isConnected && !isDisabledLike(targetEl)) {
-            console.log('[FocusManager] Applying focus to textbox after webContent focus');
+          if (!targetEl.isConnected || isDisabledLike(targetEl)) return;
+          if (document.activeElement === targetEl) return; // OK
+
+          // Step 3: SOLO se il focus diretto fallisce E la window non è focused,
+          // usa IPC come ultimo resort
+          if (!document.hasFocus()) {
+            ensureWebContentFocus('focus-assist');
+            setTimeout(() => {
+              if (targetEl.isConnected && !isDisabledLike(targetEl)) {
+                placeCaretAtEnd(targetEl);
+              }
+            }, 30);
+          } else {
+            // Window focused ma placeCaretAtEnd fallì — riprova una volta
             placeCaretAtEnd(targetEl);
           }
-        }, 30);
+        }, 16); // 1 frame
 
       }, delay);
     };
@@ -244,29 +260,56 @@ export default function FocusManager() {
         lastEditorRef.current = el;
         lastTextboxClickRef.current = Date.now();
 
-        // Se la finestra NON è key-focused, richiedi focus
+        // Hint leggero per il window manager — NO IPC distruttivi
+        // Un pointerdown PROVA che l'utente ha cliccato nella finestra,
+        // il WM sta già dando il focus. webContents.focus() via IPC
+        // qui sarebbe prematura e resetterebbe activeElement a body.
         if (!document.hasFocus()) {
-          requestWindowKeyFocusSync('pointerdown-textbox');
-          scheduleFocusWhenReady(el);
-          return;
+          try { window.focus?.(); } catch (_e) { /* ignore */ }
         }
 
-        // La finestra È focused - verifica dopo un po' se il focus è arrivato
-        // Questo cattura il caso "webContents non ha key focus"
-        ensureFocusOnTextbox(el, 100);
+        // Safety net: verifica dopo delay se il focus è arrivato
+        ensureFocusOnTextbox(el, 120);
         return;
       }
     };
 
     // ========================================
-    // REGOLA 2: Quando la finestra torna attiva
+    // REGOLA 2: Recovery proattivo quando la finestra torna attiva
+    //
+    // Su Linux/Electron, dopo alt-tab o blur/focus cycle, webContents
+    // può perdere il "key focus" interno anche se document.activeElement
+    // è corretto. La tastiera smette di funzionare.
+    // Fix: chiamare webContents.focus() per recuperare il key focus,
+    // poi ri-applicare il DOM focus sull'elemento che lo aveva.
     // ========================================
+    let _lastWindowFocusAt = 0;
+    const WINDOW_FOCUS_DEBOUNCE_MS = 300;
+
     const onWindowFocus = () => {
-      const el = pendingElRef.current;
-      if (el && el.isConnected && !isDisabledLike(el)) {
-        placeCaretAtEnd(el);
+        const now = Date.now();
+        if (now - _lastWindowFocusAt < WINDOW_FOCUS_DEBOUNCE_MS) return;
+        _lastWindowFocusAt = now;
+
+        const activeEl = document.activeElement;
+
+        // Se il document ha già focus e c'è un elemento attivo (non body),
+        // tutto funziona — non interferire
+        if (document.hasFocus() && activeEl && activeEl !== document.body) {
+            return;
+        }
+
+        const targetEl = (activeEl && isTextBox(activeEl))
+            ? activeEl
+            : (pendingElRef.current || lastEditorRef.current);
+
+        ensureWebContentFocus('window-refocus');
+
+        if (targetEl && targetEl.isConnected && !isDisabledLike(targetEl)) {
+            setTimeout(() => placeCaretAtEnd(targetEl), 20);
+        }
+
         pendingElRef.current = null;
-      }
     };
 
     // ========================================
@@ -330,7 +373,10 @@ export default function FocusManager() {
     // ========================================
     document.addEventListener("pointerdown", onPointerDownCapture, { capture: true });
     document.addEventListener("focusout", onFocusOut, { capture: true });
-    window.addEventListener("focus", onWindowFocus, true);
+    window.addEventListener("focus", onWindowFocus, false);
+
+    // Ascolta evento focus dal main process (più affidabile su Linux)
+    const unsubAppFocus = window.jinn?.on?.('app:focus', onWindowFocus);
 
     mutationObserver.observe(document.body, {
       childList: true,
@@ -345,7 +391,8 @@ export default function FocusManager() {
     return () => {
       document.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
       document.removeEventListener("focusout", onFocusOut, { capture: true });
-      window.removeEventListener("focus", onWindowFocus, true);
+      window.removeEventListener("focus", onWindowFocus, false);
+      if (unsubAppFocus) unsubAppFocus();
       mutationObserver.disconnect();
       if (modalCheckTimeout) clearTimeout(modalCheckTimeout);
     };

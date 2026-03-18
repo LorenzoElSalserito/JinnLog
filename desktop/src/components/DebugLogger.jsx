@@ -68,7 +68,7 @@ export default function DebugLogger({ contextName }) {
                         if (document.activeElement !== target) {
                             console.error(`[UI-DEBUG] ❌ Focus FAILED on input.`);
                         } else {
-                            console.log(`[UI-DEBUG] ✅ Focus SUCCESS`);
+                            console.log(`[UI-DEBUG] ✅ Focus SUCCESS (hasFocus: ${document.hasFocus()})`);
                         }
                     }, 100);
                 }

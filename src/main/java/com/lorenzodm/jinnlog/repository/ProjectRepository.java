@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -85,7 +87,7 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
      */
     @Query("SELECT p FROM Project p WHERE p.owner.id = :ownerId " +
             "AND (SELECT COUNT(t) * 100.0 / NULLIF(SIZE(p.tasks), 0) " +
-            "FROM Task t WHERE t.project = p AND t.status = 'DONE') >= :minPercentage")
+            "FROM Task t WHERE t.project = p AND UPPER(t.status.name) IN ('DONE', 'COMPLETED')) >= :minPercentage")
     List<Project> findByOwnerWithCompletionAbove(
             @Param("ownerId") String ownerId,
             @Param("minPercentage") double minPercentage
@@ -95,7 +97,7 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
      * Trova progetti che necessitano sync (cloud ready)
      */
     @Query("SELECT p FROM Project p WHERE p.syncStatus = :status OR p.lastSyncedAt < :threshold")
-    List<Project> findNeedingSync(@Param("status") String status, @Param("threshold") Instant threshold);
+    List<Project> findNeedingSync(@Param("status") SyncStatus status, @Param("threshold") Instant threshold);
 
     /**
      * Trova progetti ordinati per aggiornamento recente

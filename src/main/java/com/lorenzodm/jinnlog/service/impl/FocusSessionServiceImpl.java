@@ -47,11 +47,14 @@ public class FocusSessionServiceImpl implements FocusSessionService {
             throw new OwnershipViolationException("Task non appartiene all'utente");
         }
 
-        // Ferma eventuali sessioni attive
-        FocusSession running = getCurrentRunning(userId);
-        if (running != null) {
-            running.endSession();
-            focusSessionRepository.save(running);
+        // Multi-timer: NON fermare sessioni attive su altri task.
+        // Ferma solo se c'è già un timer sullo STESSO task.
+        List<FocusSession> running = getAllRunning(userId);
+        for (FocusSession r : running) {
+            if (r.getTask() != null && taskId.equals(r.getTask().getId())) {
+                r.endSession();
+                focusSessionRepository.save(r);
+            }
         }
 
         FocusSession fs = new FocusSession(task, user);
@@ -83,7 +86,7 @@ public class FocusSessionServiceImpl implements FocusSessionService {
         if (task != null) {
             long durationMinutes = fs.getDurationMs() / 1000 / 60;
             if (durationMinutes > 0) {
-                task.setActualMinutes(task.getActualMinutes() + (int) durationMinutes);
+                task.setActualEffort(task.getActualEffort() + (int) durationMinutes);
                 taskRepository.save(task);
             }
         }
@@ -112,6 +115,13 @@ public class FocusSessionServiceImpl implements FocusSessionService {
                 .filter(fs -> fs.getEndedAt() == null)
                 .findFirst()
                 .orElse(null);
+    }
+
+    @Override
+    public List<FocusSession> getAllRunning(String userId) {
+        return focusSessionRepository.findByUserIdOrderByStartedAtDesc(userId).stream()
+                .filter(fs -> fs.getEndedAt() == null)
+                .collect(Collectors.toList());
     }
 
     @Override

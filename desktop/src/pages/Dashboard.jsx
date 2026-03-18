@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import EstimatesWidget from "../components/EstimatesWidget.jsx";
 import FocusHeatmapWidget from "../components/FocusHeatmapWidget.jsx";
 import ProjectNotesWidget from "../components/ProjectNotesWidget.jsx";
+import Modal from "../components/modal/Modal.jsx";
 import { useTranslation } from 'react-i18next';
+import { useModal } from "../hooks/useModal.js";
 
 /**
  * Dashboard - Pagina principale con widget e statistiche
@@ -25,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function Dashboard({ shell }) {
     const { t } = useTranslation();
+    const modal = useModal();
     const [stats, setStats] = useState({
         totalProjects: 0,
         totalTasks: 0,
@@ -36,12 +39,28 @@ export default function Dashboard({ shell }) {
     const [overdueTasksList, setOverdueTasksList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProjectId, setSelectedProjectId] = useState(shell?.currentProject?.id || "");
+    const [showNoProjectsModal, setShowNoProjectsModal] = useState(false);
+    const welcomeShown = useRef(false);
 
     // Setup shell
     useEffect(() => {
         shell?.setTitle?.(t("Dashboard"));
-        shell?.setHeaderActions?.(null);
+        shell?.setHeaderActions?.(
+            <div className="d-flex gap-2 align-items-center">
+                <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={loadData}
+                    title={t("Refresh")}
+                >
+                    <i className="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+        );
         shell?.setRightPanel?.(null);
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
     }, [shell, t]);
 
     // Sync selected project with shell
@@ -99,6 +118,11 @@ export default function Dashboard({ shell }) {
                 completedTasks: allTasks.filter(t => t.status === 'DONE').length
             });
 
+            // Show "no projects" modal if empty
+            if (activeProjects.length === 0 && archivedProjects.length === 0) {
+                setShowNoProjectsModal(true);
+            }
+
             // 4. Classifica Progetti (Verdi -> Gialli -> Rossi)
             const ranked = projectStats.sort((a, b) => {
                 const healthScore = { "OK": 0, "WARNING": 1, "CRITICAL": 2 };
@@ -124,11 +148,22 @@ export default function Dashboard({ shell }) {
     }, []);
 
     useEffect(() => {
-        loadData();
+        loadData().then(() => {
+            // Welcome toast on first login (one-shot)
+            if (!welcomeShown.current) {
+                welcomeShown.current = true;
+                const key = "jinnlog_welcome_shown";
+                if (!localStorage.getItem(key)) {
+                    localStorage.setItem(key, "1");
+                    toast.info(t("welcome_first_login"), { autoClose: 6000 });
+                }
+            }
+        });
     }, [loadData]);
 
     const handleRestoreProject = async (project) => {
-        if (!confirm(t("Reopen project") + ` "${project.name}"?`)) return;
+        const confirmed = await modal.confirm({ title: t("Reopen project") + ` "${project.name}"?` });
+        if (!confirmed) return;
         try {
             await jinn.projectsSetArchived(project.id, false);
             toast.success(t("Project reopened"));
@@ -347,7 +382,7 @@ export default function Dashboard({ shell }) {
                                             <span className="text-decoration-line-through text-muted">{p.name}</span>
                                             <small className="text-muted d-block">{t("Archived on")} {new Date(p.updatedAt).toLocaleDateString()}</small>
                                         </div>
-                                        <button 
+                                        <button
                                             className="btn btn-sm btn-outline-secondary"
                                             onClick={() => handleRestoreProject(p)}
                                             title={t("Reopen")}
@@ -360,6 +395,35 @@ export default function Dashboard({ shell }) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* No Projects Modal */}
+            {showNoProjectsModal && (
+                <Modal title={t("no_projects_title")} onClose={() => setShowNoProjectsModal(false)}>
+                    <div className="modal-body">
+                        <div className="text-center mb-3">
+                            <i className="bi bi-folder-plus" style={{ fontSize: "3rem", color: "var(--bs-primary)" }}></i>
+                        </div>
+                        <p>{t("no_projects_message")}</p>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowNoProjectsModal(false)}>
+                            {t("Close")}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            autoFocus
+                            onClick={() => {
+                                setShowNoProjectsModal(false);
+                                shell.navigate("menu");
+                            }}
+                        >
+                            <i className="bi bi-folder2-open me-2"></i>
+                            {t("Go to Projects")}
+                        </button>
+                    </div>
+                </Modal>
             )}
         </div>
     );

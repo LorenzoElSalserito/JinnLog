@@ -66,6 +66,13 @@ public class FocusSessionController {
         return ResponseEntity.ok(focusSessionMapper.toResponse(current));
     }
 
+    @GetMapping("/running")
+    public ResponseEntity<List<FocusSessionResponse>> getAllRunning(@PathVariable String userId) {
+        List<FocusSessionResponse> out = focusSessionService.getAllRunning(userId)
+                .stream().map(focusSessionMapper::toResponse).toList();
+        return ResponseEntity.ok(out);
+    }
+
     @GetMapping
     public ResponseEntity<List<FocusSessionResponse>> list(
             @PathVariable String userId,

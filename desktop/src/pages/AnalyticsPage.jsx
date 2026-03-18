@@ -4,12 +4,21 @@ import FocusHeatmapWidget from '../components/FocusHeatmapWidget';
 import EstimatesWidget from '../components/EstimatesWidget';
 import { useTranslation } from 'react-i18next';
 
-const AnalyticsPage = () => {
+const AnalyticsPage = ({ shell }) => {
     const { t } = useTranslation();
     const [projects, setProjects] = useState([]);
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    useEffect(() => {
+        shell?.setTitle?.(t("Analytics Hub"));
+        shell?.setHeaderActions?.(null);
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
+    }, [shell, t]);
 
     useEffect(() => {
         loadProjects();

@@ -17,4 +17,10 @@ public interface UserConnectionService {
     
     // Ricerca solo tra gli amici
     List<User> searchFriends(String userId, String query);
+
+    // Ghost users globali
+    List<User> listGhosts(String userId);
+    User createGhostGlobal(String creatorId, String username, String displayName);
+    User updateGhost(String userId, String ghostId, String username, String displayName);
+    void deleteGhost(String userId, String ghostId);
 }

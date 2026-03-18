@@ -1,6 +1,8 @@
 package com.lorenzodm.jinnlog.core.entity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 import org.hibernate.annotations.CreationTimestamp;
@@ -64,10 +66,11 @@ public abstract class BaseSyncEntity {
 
     /**
      * Current synchronization status of the entity.
-     * Possible values: LOCAL_ONLY, SYNCED, CONFLICT, PENDING.
+     * Possible values: LOCAL_ONLY, SYNCED, CONFLICT, PENDING, SOFT_DELETED.
      */
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String syncStatus = "LOCAL_ONLY"; // Default
+    private SyncStatus syncStatus = SyncStatus.LOCAL_ONLY; // Default
 
     /**
      * Default constructor.
@@ -117,11 +120,11 @@ public abstract class BaseSyncEntity {
         this.lastSyncedAt = lastSyncedAt;
     }
 
-    public String getSyncStatus() {
+    public SyncStatus getSyncStatus() {
         return syncStatus;
     }
 
-    public void setSyncStatus(String syncStatus) {
+    public void setSyncStatus(SyncStatus syncStatus) {
         this.syncStatus = syncStatus;
     }
 

@@ -39,7 +39,7 @@ public class CalendarServiceImpl implements CalendarService {
         // Recupera task assegnati all'utente che non sono archiviati
         List<Task> tasks = taskRepository.findByAssignedToId(userId).stream()
                 .filter(t -> !t.isArchived())
-                .filter(t -> t.getDeadline() != null || t.getScheduledStart() != null)
+                .filter(t -> t.getDeadline() != null || t.getPlannedStart() != null)
                 .toList();
 
         StringBuilder ics = new StringBuilder();
@@ -63,20 +63,21 @@ public class CalendarServiceImpl implements CalendarService {
             }
 
             // Date logic
-            if (t.getScheduledStart() != null) {
-                ics.append("DTSTART:").append(formatter.format(t.getScheduledStart().atZone(ZoneId.systemDefault()))).append("\n");
-                if (t.getScheduledEnd() != null) {
-                    ics.append("DTEND:").append(formatter.format(t.getScheduledEnd().atZone(ZoneId.systemDefault()))).append("\n");
+            if (t.getPlannedStart() != null) {
+                ics.append("DTSTART:").append(formatter.format(t.getPlannedStart().atZone(ZoneId.systemDefault()))).append("\n");
+                if (t.getPlannedFinish() != null) {
+                    ics.append("DTEND:").append(formatter.format(t.getPlannedFinish().atZone(ZoneId.systemDefault()))).append("\n");
                 } else {
                     // Default 1h duration if no end
-                    ics.append("DTEND:").append(formatter.format(t.getScheduledStart().plusHours(1).atZone(ZoneId.systemDefault()))).append("\n");
+                    ics.append("DTEND:").append(formatter.format(t.getPlannedStart().plusHours(1).atZone(ZoneId.systemDefault()))).append("\n");
                 }
             } else if (t.getDeadline() != null) {
                 // All day event for deadline
                 ics.append("DTSTART;VALUE=DATE:").append(t.getDeadline().format(DateTimeFormatter.BASIC_ISO_DATE)).append("\n");
             }
 
-            ics.append("STATUS:").append(mapStatus(t.getStatus())).append("\n");
+            String statusName = t.getStatus() != null ? t.getStatus().getName() : "";
+            ics.append("STATUS:").append(mapStatus(statusName)).append("\n");
             ics.append("END:VEVENT\n");
         }
 

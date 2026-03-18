@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -88,6 +89,47 @@ public class UserConnectionController {
         return ResponseEntity.ok(pending);
     }
     
+    @GetMapping("/ghosts")
+    public ResponseEntity<List<UserResponse>> listGhosts(@RequestHeader("X-User-Id") String userId) {
+        log.debug("Listing ghost users for user {}", userId);
+        List<UserResponse> ghosts = connectionService.listGhosts(userId).stream()
+                .map(userMapper::toResponseLight)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ghosts);
+    }
+
+    @PostMapping("/ghosts")
+    public ResponseEntity<UserResponse> createGhost(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody Map<String, String> body) {
+        String username = body.get("username");
+        String displayName = body.get("displayName");
+        log.debug("Creating global ghost user '{}' for user {}", username, userId);
+        var ghost = connectionService.createGhostGlobal(userId, username, displayName);
+        return ResponseEntity.ok(userMapper.toResponseLight(ghost));
+    }
+
+    @PutMapping("/ghosts/{ghostId}")
+    public ResponseEntity<UserResponse> updateGhost(
+            @RequestHeader("X-User-Id") String userId,
+            @PathVariable String ghostId,
+            @RequestBody Map<String, String> body) {
+        String username = body.get("username");
+        String displayName = body.get("displayName");
+        log.debug("User {} updating ghost {}", userId, ghostId);
+        var ghost = connectionService.updateGhost(userId, ghostId, username, displayName);
+        return ResponseEntity.ok(userMapper.toResponseLight(ghost));
+    }
+
+    @DeleteMapping("/ghosts/{ghostId}")
+    public ResponseEntity<Void> deleteGhost(
+            @RequestHeader("X-User-Id") String userId,
+            @PathVariable String ghostId) {
+        log.debug("User {} deleting ghost {}", userId, ghostId);
+        connectionService.deleteGhost(userId, ghostId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/pending/outgoing")
     public ResponseEntity<List<UserConnectionResponse>> listPendingOutgoing(@RequestHeader("X-User-Id") String userId) {
         log.debug("Listing pending outgoing for user {}", userId);

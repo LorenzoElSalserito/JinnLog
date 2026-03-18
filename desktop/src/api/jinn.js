@@ -1,5 +1,5 @@
 /**
- * JinnLog API Client v0.7.4
+ * JinnLog API Client v0.9.0
  *
  * This module handles all communication with the Java backend.
  * It works in both Electron (desktop) and browser (web) modes.
@@ -20,11 +20,14 @@
  * - Connections API (v0.6.0)
  * - Resource API (v0.6.0)
  * - Notifications API (v0.7.0)
+ * - Project Charter & Executive Dashboard API (v0.8.0)
+ * - Project Templates API (v0.9.0)
+ * - Calendar Integrations API (v0.9.0)
  *
  * @module jinn
  * @author Lorenzo DM
  * @since 0.2.0
- * @updated 0.7.4 - Added taskId support for asset upload
+ * @updated 0.10.0 - Added Calendar/ICS API
  */
 
 // ========================================
@@ -295,6 +298,8 @@ export const jinn = {
         await initializeApi();
         return { baseUrl: API_BASE_URL };
     },
+    
+    getApiUrl: () => API_BASE_URL, // Expose helper directly for getting URL synchronously (if initialized)
 
     /**
      * Sets the current user ID.
@@ -545,6 +550,42 @@ export const jinn = {
     },
 
     /**
+     * Lists all ghost (virtual) users created by the current user.
+     */
+    ghostsList: () => {
+        return apiRequest(`/connections/ghosts`);
+    },
+
+    /**
+     * Creates a global ghost user (not tied to any project).
+     */
+    ghostsCreate: (username, displayName) => {
+        return apiRequest(`/connections/ghosts`, {
+            method: 'POST',
+            body: { username, displayName },
+        });
+    },
+
+    /**
+     * Updates a ghost user's name/username.
+     */
+    ghostsUpdate: (ghostId, { username, displayName }) => {
+        return apiRequest(`/connections/ghosts/${ghostId}`, {
+            method: 'PUT',
+            body: { username, displayName },
+        });
+    },
+
+    /**
+     * Deletes (soft-delete) a ghost user.
+     */
+    ghostsDelete: (ghostId) => {
+        return apiRequest(`/connections/ghosts/${ghostId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
      * Gets incoming pending requests.
      */
     connectionsPendingIncoming: () => {
@@ -626,6 +667,282 @@ export const jinn = {
     },
 
     // ========================================
+    // Project Templates API (v0.9.0)
+    // Endpoint: /api/templates
+    // ========================================
+
+    /**
+     * Gets all available templates.
+     */
+    templatesList: () => {
+        return apiRequest('/templates');
+    },
+
+    /**
+     * Gets a specific template.
+     */
+    templatesGet: (templateId) => {
+        return apiRequest(`/templates/${templateId}`);
+    },
+
+    /**
+     * Instantiates a new project from a template.
+     * @param {string} templateId - The ID of the template.
+     * @param {Object} data - { name, description, ... }
+     */
+    templatesInstantiate: (templateId, data) => {
+        const basePath = getUserBasePath(); 
+        return apiRequest(`${basePath}/projects/from-template/${templateId}`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    // ========================================
+    // Project Charter & Executive Dashboard API (v0.8.0)
+    // Endpoint: /api/users/{userId}/projects/{projectId}/...
+    // ========================================
+
+    /**
+     * Gets the Project Charter data.
+     */
+    projectCharterGet: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/charter`);
+    },
+
+    /**
+     * Updates (upsert) the Project Charter data.
+     */
+    projectCharterUpdate: (projectId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/charter`, {
+            method: 'PUT',
+            body: data,
+        });
+    },
+
+    /**
+     * Gets Key Deliverables for a project.
+     */
+    projectDeliverablesList: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/deliverables`);
+    },
+
+    /**
+     * Creates a new Key Deliverable.
+     */
+    projectDeliverablesCreate: (projectId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/deliverables`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    /**
+     * Updates a Key Deliverable.
+     */
+    projectDeliverablesUpdate: (projectId, deliverableId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/deliverables/${deliverableId}`, {
+            method: 'PUT',
+            body: data,
+        });
+    },
+
+    /**
+     * Deletes a Key Deliverable.
+     */
+    projectDeliverablesDelete: (projectId, deliverableId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/deliverables/${deliverableId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Gets Project Risks.
+     */
+    projectRisksList: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/risks`);
+    },
+
+    /**
+     * Creates a new Project Risk.
+     */
+    projectRisksCreate: (projectId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/risks`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    /**
+     * Updates a Project Risk.
+     */
+    projectRisksUpdate: (projectId, riskId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/risks/${riskId}`, {
+            method: 'PUT',
+            body: data,
+        });
+    },
+
+    /**
+     * Deletes a Project Risk.
+     */
+    projectRisksDelete: (projectId, riskId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/risks/${riskId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    // ========================================
+    // OKR API (v0.8.0)
+    // Endpoint: /api/users/{userId}/projects/{projectId}/okrs
+    // ========================================
+
+    /**
+     * Lists all OKRs for a project.
+     */
+    okrsList: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs`);
+    },
+
+    /**
+     * Creates a new OKR.
+     */
+    okrsCreate: (projectId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    /**
+     * Deletes an OKR.
+     */
+    okrsDelete: (projectId, okrId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs/${okrId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Adds a key result to an OKR.
+     */
+    okrsAddKeyResult: (projectId, okrId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs/${okrId}/key-results`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    /**
+     * Updates a key result.
+     */
+    okrsUpdateKeyResult: (projectId, okrId, metricId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs/${okrId}/key-results/${metricId}`, {
+            method: 'PUT',
+            body: data,
+        });
+    },
+
+    /**
+     * Deletes a key result.
+     */
+    okrsDeleteKeyResult: (projectId, okrId, metricId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs/${okrId}/key-results/${metricId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Records an achievement for a key result.
+     */
+    okrsRecordAchievement: (projectId, okrId, metricId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/okrs/${okrId}/key-results/${metricId}/achievements`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    // ========================================
+    // Baseline API (v0.8.0)
+    // Endpoint: /api/users/{userId}/projects/{projectId}/baselines
+    // ========================================
+
+    /**
+     * Lists all baselines for a project.
+     */
+    baselinesList: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/baselines`);
+    },
+
+    /**
+     * Creates a new baseline (snapshot of current task state).
+     */
+    baselinesCreate: (projectId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/baselines`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    /**
+     * Deletes a baseline.
+     */
+    baselinesDelete: (projectId, baselineId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/baselines/${baselineId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Gets variance analysis for a specific baseline.
+     */
+    baselinesVariance: (projectId, baselineId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/baselines/${baselineId}/variance`);
+    },
+
+    /**
+     * Gets variance analysis from the latest baseline.
+     */
+    baselinesLatestVariance: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/baselines/latest/variance`);
+    },
+
+    // ========================================
+    // Executive Dashboard API (v0.8.0)
+    // Endpoint: /api/users/{userId}/projects/{projectId}/dashboard
+    // ========================================
+
+    /**
+     * Gets the aggregated executive dashboard data.
+     */
+    executiveDashboard: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/dashboard`);
+    },
+
+    // ========================================
     // Tasks API
     // Endpoint: /api/users/{userId}/projects/{projectId}/tasks
     // ========================================
@@ -678,11 +995,11 @@ export const jinn = {
     /**
      * Updates only the status of a task.
      */
-    tasksUpdateStatus: (projectId, taskId, status) => {
+    tasksUpdateStatus: (projectId, taskId, statusId) => {
         const basePath = getUserBasePath();
         return apiRequest(`${basePath}/projects/${projectId}/tasks/${taskId}/status`, {
             method: 'PATCH',
-            body: { status },
+            body: { statusId },
         });
     },
 
@@ -711,6 +1028,64 @@ export const jinn = {
         return apiRequest(`${basePath}/projects/${projectId}/tasks/reorder`, {
             method: 'PUT',
             body: orderedTaskIds,
+        });
+    },
+
+    /**
+     * Gets Gantt/Timeline data for a project.
+     * Returns tasks with dependencies, critical path, WBS codes.
+     */
+    tasksGantt: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/tasks/gantt`);
+    },
+
+    // ========================================
+    // Task Statuses & Priorities API
+    // Endpoint: /api/task-statuses, /api/task-priorities
+    // ========================================
+
+    /**
+     * Lists all task statuses.
+     */
+    taskStatusesList: () => apiRequest('/task-statuses'),
+
+    /**
+     * Lists all task priorities.
+     */
+    taskPrioritiesList: () => apiRequest('/task-priorities'),
+
+    // ========================================
+    // Dependencies API (PRD-08)
+    // Endpoint: /api/users/{userId}/projects/{projectId}/dependencies
+    // ========================================
+
+    /**
+     * Lists all dependencies for a project.
+     */
+    dependenciesList: (projectId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/dependencies`);
+    },
+
+    /**
+     * Creates a new dependency between tasks.
+     */
+    dependenciesCreate: (projectId, data) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/dependencies`, {
+            method: 'POST',
+            body: data,
+        });
+    },
+
+    /**
+     * Deletes a dependency.
+     */
+    dependenciesDelete: (projectId, dependencyId) => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/projects/${projectId}/dependencies/${dependencyId}`, {
+            method: 'DELETE',
         });
     },
 
@@ -1068,6 +1443,14 @@ export const jinn = {
     },
 
     /**
+     * Gets all running focus sessions (multi-timer).
+     */
+    focusRunningAll: () => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/focus-sessions/running`);
+    },
+
+    /**
      * Gets focus sessions (optionally filtered by taskId).
      */
     focusList: (taskId = null) => {
@@ -1248,6 +1631,26 @@ export const jinn = {
     reminderMarkNotified: (taskId) => {
         console.warn('[JinnLog API] reminderMarkNotified: endpoint non ancora implementato');
         return Promise.resolve({ taskId, notified: true });
+    },
+
+    // ========================================
+    // Calendar Integrations (v0.10.0)
+    // ========================================
+
+    /**
+     * Gets the current ICS token for the user.
+     */
+    getCalendarToken: () => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/calendar/token`);
+    },
+
+    /**
+     * Regenerates the ICS token for the user.
+     */
+    regenerateCalendarToken: () => {
+        const basePath = getUserBasePath();
+        return apiRequest(`${basePath}/calendar/token`, { method: 'POST' });
     },
 
     // ========================================

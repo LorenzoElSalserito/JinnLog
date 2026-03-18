@@ -3,6 +3,7 @@ import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import MDEditor from "@uiw/react-md-editor";
 import { useTranslation } from 'react-i18next';
+import { useModal } from "../hooks/useModal.js";
 
 /**
  * NotesPage - Pagina per gestione note markdown (Feed/Inbox)
@@ -124,6 +125,7 @@ function NoteCard({ note, isActive, onClick, onDelete, currentUserId, t }) {
 
 export default function NotesPage({ shell }) {
     const { t } = useTranslation();
+    const modal = useModal();
     const [notes, setNotes] = useState([]);
     const [activeNote, setActiveNote] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -232,6 +234,10 @@ export default function NotesPage({ shell }) {
 
         shell?.setHeaderActions?.(headerActions);
         shell?.setRightPanel?.(null);
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
     }, [shell, searchTerm, contextFilter, contextId, t, openCreateModal]);
 
     const loadNotes = useCallback(async () => {
@@ -375,7 +381,8 @@ export default function NotesPage({ shell }) {
     };
 
     const handleDelete = async (note) => {
-        if (!confirm(t("Are you sure you want to delete") + ` "${note.title}"?`)) return;
+        const confirmed = await modal.confirm({ title: t("Are you sure you want to delete") + ` "${note.title}"?` });
+        if (!confirmed) return;
         try {
             await jinn.notesDelete(note.id);
             setNotes((prev) => prev.filter((n) => n.id !== note.id));

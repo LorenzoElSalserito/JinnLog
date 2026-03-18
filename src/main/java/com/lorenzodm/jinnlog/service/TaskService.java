@@ -2,7 +2,7 @@ package com.lorenzodm.jinnlog.service;
 
 import com.lorenzodm.jinnlog.api.dto.request.CreateTaskRequest;
 import com.lorenzodm.jinnlog.api.dto.request.UpdateTaskRequest;
-import com.lorenzodm.jinnlog.api.dto.request.UpdateTaskStatusRequest;
+import com.lorenzodm.jinnlog.api.dto.request.ChangeTaskStatusRequest;
 import com.lorenzodm.jinnlog.core.entity.Task;
 
 import java.util.List;
@@ -24,7 +24,7 @@ public interface TaskService {
 
     Task update(String userId, String projectId, String taskId, UpdateTaskRequest req);
 
-    Task updateStatus(String userId, String projectId, String taskId, UpdateTaskStatusRequest req);
+    Task updateStatus(String userId, String projectId, String taskId, ChangeTaskStatusRequest req);
 
     Task setArchived(String userId, String projectId, String taskId, boolean archived);
 

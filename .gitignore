@@ -47,4 +47,10 @@ desktop/*.local
 ### OS Generated ###
 .DS_Store
 Thumbs.db
-/ROADMAP.md
+
+### Local Configuration & Logs ###
+local.properties
+*.log
+
+### Project Documents / Internal ###
+PRD_JINNLOG.md

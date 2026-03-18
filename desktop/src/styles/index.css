@@ -273,3 +273,50 @@ img {
 .no-select {
   user-select: none;
 }
+
+/* ========================================
+   Gantt Chart - Custom Styles (PRD-10)
+   ======================================== */
+
+/* Critical path tasks */
+.gantt .bar-wrapper .bar-critical .bar-progress,
+.gantt .bar-wrapper .bar-critical .bar {
+  fill: #e74c3c !important;
+}
+
+/* Summary tasks */
+.gantt .bar-wrapper .bar-summary .bar-progress,
+.gantt .bar-wrapper .bar-summary .bar {
+  fill: #6c757d !important;
+}
+
+/* Milestones */
+.gantt .bar-wrapper .bar-milestone .bar-progress,
+.gantt .bar-wrapper .bar-milestone .bar {
+  fill: #ffc107 !important;
+}
+
+/* Line clamp utility */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Template card hover */
+.template-card:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+/* Fade-in animation */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -1,41 +1,39 @@
 package com.lorenzodm.jinnlog.core.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.Where;
 
-import java.time.Instant;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 /**
- * Represents a structured note associated with a Task or Project.
+ * Represents a structured note within the system.
  * <p>
- * Notes are used for logging updates, comments, or structured information
- * related to a specific context (parent). They support Markdown for rich text formatting.
+ * Notes are used for logging updates, comments, or structured information.
+ * They support Markdown for rich text formatting and can be linked to multiple
+ * domain entities (like Tasks, Projects, etc.) via the {@link NoteLink} entity,
+ * making them a core part of the contextual knowledge layer.
  * </p>
  *
  * @author Lorenzo DM
  * @since 0.5.0
- * @version 0.5.2
+ * @version 1.0.0
  */
 @Entity
 @Table(name = "notes", indexes = {
-        @Index(name = "idx_note_parent", columnList = "parent_type, parent_id"),
         @Index(name = "idx_note_owner", columnList = "owner_id"),
-        @Index(name = "idx_note_project_updated", columnList = "project_id, updated_at")
+        @Index(name = "idx_note_project_updated", columnList = "project_id, updated_at"),
+        @Index(name = "idx_note_parent", columnList = "parent_type, parent_id")
 })
 @SQLDelete(sql = "UPDATE notes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @Where(clause = "deleted_at IS NULL")
 public class Note extends BaseSyncEntity {
 
     /**
-     * Defines the type of entity this note is attached to.
+     * Defines the type of entity this note is directly attached to.
+     * This is the primary (single-parent) context for a note.
+     * For polymorphic links to multiple entities, use {@link NoteLink}.
      */
     public enum ParentType {
         TASK,
@@ -49,12 +47,12 @@ public class Note extends BaseSyncEntity {
     private String content; // Markdown content
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "parent_type", nullable = false, length = 20)
+    @Column(name = "parent_type", length = 20)
     private ParentType parentType;
 
-    @Column(name = "parent_id", nullable = false, length = 36)
+    @Column(name = "parent_id", length = 36)
     private String parentId;
-    
+
     @Column(name = "project_id", length = 36)
     private String projectId; // Denormalized for feed queries
 
@@ -72,6 +70,9 @@ public class Note extends BaseSyncEntity {
             inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
     private Set<Tag> tags = new HashSet<>();
+
+    @OneToMany(mappedBy = "note", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<NoteLink> links = new HashSet<>();
 
     public Note() {
         super();
@@ -110,7 +111,7 @@ public class Note extends BaseSyncEntity {
     public void setParentId(String parentId) {
         this.parentId = parentId;
     }
-    
+
     public String getProjectId() {
         return projectId;
     }
@@ -141,5 +142,33 @@ public class Note extends BaseSyncEntity {
 
     public void setVersion(Long version) {
         this.version = version;
+    }
+
+    public Set<NoteLink> getLinks() {
+        return links;
+    }
+
+    public void setLinks(Set<NoteLink> links) {
+        this.links = links;
+    }
+
+    // Helper methods
+    
+    /**
+     * Adds a link to another entity and maintains the bidirectional relationship.
+     * @param link The NoteLink to add.
+     */
+    public void addLink(NoteLink link) {
+        links.add(link);
+        link.setNote(this);
+    }
+
+    /**
+     * Removes a link to another entity.
+     * @param link The NoteLink to remove.
+     */
+    public void removeLink(NoteLink link) {
+        links.remove(link);
+        link.setNote(null);
     }
 }

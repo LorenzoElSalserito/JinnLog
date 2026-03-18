@@ -53,7 +53,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         // Raccogli tutti i task rilevanti (con stima > 0)
         for (Project p : projects) {
             allTasks.addAll(taskRepository.findByProjectId(p.getId()).stream()
-                    .filter(t -> t.getEstimatedMinutes() != null && t.getEstimatedMinutes() > 0)
+                    .filter(t -> t.getEstimatedEffort() != null && t.getEstimatedEffort() > 0)
                     .toList());
         }
 
@@ -162,8 +162,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     }
 
     private TaskDeviationResponse calculateDeviation(Task t) {
-        int estimated = t.getEstimatedMinutes();
-        int actual = t.getActualMinutes() != null ? t.getActualMinutes() : 0;
+        int estimated = t.getEstimatedEffort();
+        int actual = t.getActualEffort() != null ? t.getActualEffort() : 0;
         
         // Formula: (actual - estimated) / estimated * 100
         // Se actual > estimated -> positivo (sottostimato, ci ho messo di più)

@@ -10,6 +10,8 @@ public record ResourceAllocationResponse(
     public record UserAllocation(
             String userId,
             String userName,
-            Map<LocalDate, Integer> dailyMinutes // Data -> Minuti stimati totali
+            Map<LocalDate, Integer> dailyMinutes,     // Data -> Minuti stimati
+            int totalEstimatedMinutes,                 // Totale effort stimato
+            int totalActualMinutes                     // Totale effort effettivo (da focus sessions)
     ) {}
 }

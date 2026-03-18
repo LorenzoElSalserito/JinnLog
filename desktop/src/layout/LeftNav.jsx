@@ -4,13 +4,13 @@ import { useTranslation } from 'react-i18next';
 
 /**
  * LeftNav - Barra di navigazione laterale
- * 
+ *
  * Features:
  * - Navigazione tra pagine
  * - Icone Bootstrap Icons
  * - Indicatore pagina attiva
  * - Collapsibile
- * 
+ *
  * @author Lorenzo DM
  * @since 0.2.0
  * @updated 0.8.5 - Sidebar collapsibile
@@ -29,12 +29,12 @@ export default function LeftNav({ items, activeId, onSelect }) {
             {/* Logo Header */}
             <div className="jl-sidebar-header">
                 <div className="jl-logo">
-                    <img 
-                        src={Logo} 
-                        alt="JinnLog Logo" 
-                        className="jl-logo-img" 
-                        style={{ 
-                            width: collapsed ? "32px" : "40px", 
+                    <img
+                        src={Logo}
+                        alt="JinnLog Logo"
+                        className="jl-logo-img"
+                        style={{
+                            width: collapsed ? "32px" : "40px",
                             height: collapsed ? "32px" : "40px",
                             borderRadius: "8px", // Smussamento angoli
                             transition: "all 0.2s ease"
@@ -72,7 +72,7 @@ export default function LeftNav({ items, activeId, onSelect }) {
                 >
                     <i className={`bi ${collapsed ? "bi-chevron-right" : "bi-chevron-left"}`}></i>
                 </button>
-                
+
                 {!collapsed && (
                     <div className="jl-sidebar-branding">
                         <small className="text-muted">JinnLog • UI Shell</small>

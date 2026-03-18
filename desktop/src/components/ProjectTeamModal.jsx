@@ -3,12 +3,14 @@ import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import PortalModal from "./PortalModal.jsx";
 import { useTranslation } from 'react-i18next';
+import { useModal } from "../hooks/useModal.js";
 
 export default function ProjectTeamModal({ project, onClose }) {
     const { t } = useTranslation();
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("list"); // list, add
+    const modal = useModal();
 
     // Add Member State
     const [isRealUser, setIsRealUser] = useState(false);
@@ -88,7 +90,11 @@ export default function ProjectTeamModal({ project, onClose }) {
     };
 
     const handleRemoveMember = async (userId) => {
-        if (!confirm(t("Are you sure you want to delete"))) return;
+        const confirmed = await modal.confirm({
+            title: t("Are you sure you want to delete"),
+            message: t("This action is irreversible."),
+        });
+        if (!confirmed) return;
         try {
             await jinn.projectMembersRemove(project.id, userId);
             toast.success(t("Deleted successfully"));

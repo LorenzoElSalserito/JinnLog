@@ -4,12 +4,14 @@ import ProjectNotesWidget from "./ProjectNotesWidget.jsx";
 import PortalModal from "./PortalModal.jsx";
 import ProjectTeamModal from "./ProjectTeamModal.jsx";
 import { useTranslation } from 'react-i18next';
+import { useModal } from "../hooks/useModal.js";
 
 export default function ProjectDetailModal({ project, onClose, onUpdate, onDelete, onArchive, onNavigateToPlanner, onNavigateToNotes }) {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState("info");
     const [editValues, setEditValues] = useState({ ...project });
     const [showTeamModal, setShowTeamModal] = useState(false);
+    const modal = useModal();
 
     useEffect(() => {
         setEditValues({ ...project });
@@ -21,6 +23,16 @@ export default function ProjectDetailModal({ project, onClose, onUpdate, onDelet
             toast.success(t("Project updated"));
         } catch (e) {
             toast.error(t("Update error") + ": " + e.message);
+        }
+    };
+
+    const handleDelete = async () => {
+        const confirmed = await modal.confirm({
+            title: t("Delete project?"),
+            message: t("Are you sure you want to delete this project? This action is irreversible."),
+        });
+        if (confirmed) {
+            onDelete(project.id);
         }
     };
 
@@ -100,7 +112,7 @@ export default function ProjectDetailModal({ project, onClose, onUpdate, onDelet
                         <div>
                             <button
                                 className="btn btn-outline-danger me-2"
-                                onClick={() => { if(confirm(t("Delete project?"))) onDelete(project.id); }}
+                                onClick={handleDelete}
                             >
                                 <i className="bi bi-trash me-1"></i> {t("Delete")}
                             </button>

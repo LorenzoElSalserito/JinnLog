@@ -18,6 +18,11 @@ public interface FocusSessionService {
     FocusSession getCurrentRunning(String userId);
 
     /**
+     * Ottiene tutte le sessioni focus attive per l'utente (multi-timer)
+     */
+    List<FocusSession> getAllRunning(String userId);
+
+    /**
      * Ottiene i dati per la heatmap delle sessioni focus
      */
     FocusHeatmapResponse getHeatmap(String userId, int days);

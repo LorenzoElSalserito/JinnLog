@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from "react";
 
 /**
  * ProfileMenu - Menu dropdown profilo utente
- * 
+ *
  * Features:
  * - Avatar con iniziali
  * - Menu dropdown con azioni custom
  * - Separatori
- * 
+ *
  * @author Lorenzo DM
  * @since 0.2.0
  */

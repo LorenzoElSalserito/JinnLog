@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { jinn } from "../api/jinn.js";
+import { toast } from "react-toastify";
 import { useTranslation } from 'react-i18next';
 
 function formatMs(ms) {
@@ -46,13 +47,13 @@ export default function FocusTimer({ selectedTask }) {
         if (!selectedTask) return;
         const res = await jinn.focusStart(selectedTask.id);
         if (res.ok) await loadRunning();
-        else alert(res.error);
+        else toast.error(res.error);
     }
 
     async function stop() {
         const res = await jinn.focusStop();
         if (res.ok) await loadRunning();
-        else alert(res.error);
+        else toast.error(res.error);
     }
 
     const isThisTaskRunning =

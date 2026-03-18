@@ -26,35 +26,37 @@ import java.util.List;
 public record UpdateTaskRequest(
         @Size(max = 500) String title,
         @Size(max = 5000) String description,
-        @Size(max = 20) String status,
-        @Size(max = 20) String priority,
+        String statusId,
+        String priorityId,
         LocalDate deadline,
         @Size(max = 200) String owner,
-        @Size(max = 2000) String notes, // Legacy
-        String markdownNotes, // Nuovo in v0.2.0
+        @Size(max = 2000) String notes,
+        String markdownNotes,
         Boolean archived,
         Integer sortOrder,
         String assignedToId,
 
-        // Reminder (nuovo in v0.2.0)
+        // Reminder
         LocalDateTime reminderDate,
         Boolean reminderEnabled,
 
-        // Time Tracking (v0.4.0)
-        Integer estimatedMinutes,
-        Integer actualMinutes,
+        // Time Tracking
+        Integer estimatedEffort,
+        Integer actualEffort,
 
-        // Asset legacy (mantenuti per compatibilità)
+        // Asset legacy
         @Size(max = 500) String assetPath,
         @Size(max = 100) String assetFileName,
         @Size(max = 50) String assetMimeType,
         Long assetSizeBytes,
 
-        // Nuovo in v0.2.0
-        List<String> tagIds, // Lista ID tag da associare al task
+        List<String> tagIds,
 
-        // Nuovo in v0.5.0
+        // Task type & planning
         String type,
-        LocalDateTime scheduledStart,
-        LocalDateTime scheduledEnd
+        LocalDateTime plannedStart,
+        LocalDateTime plannedFinish,
+
+        // Phase 2 - SUMMARY_TASK hierarchy
+        String parentTaskId
 ) {}

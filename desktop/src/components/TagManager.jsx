@@ -4,6 +4,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiTag, FiSearch } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { jinn } from "../api/jinn.js";
 import { useTranslation } from 'react-i18next';
+import { useModal } from '../hooks/useModal';
 
 /**
  * TagManager - Componente per gestione tag
@@ -21,6 +22,7 @@ import { useTranslation } from 'react-i18next';
  */
 export default function TagManager({ show, onHide }) {
     const { t } = useTranslation();
+    const modal = useModal();
     const [tags, setTags] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [newTagName, setNewTagName] = useState("");
@@ -97,10 +99,11 @@ export default function TagManager({ show, onHide }) {
     };
 
     const handleDeleteTag = async (tagId, tagName) => {
-        const confirm = window.confirm(
-            `${t("Are you sure you want to delete")} "${tagName}"?`
-        );
-        if (!confirm) return;
+        const confirmed = await modal.confirm({
+            title: t('Conferma eliminazione'),
+            message: `${t("Are you sure you want to delete")} "${tagName}"?`
+        });
+        if (!confirmed) return;
 
         try {
             await jinn.tagsDelete(tagId);

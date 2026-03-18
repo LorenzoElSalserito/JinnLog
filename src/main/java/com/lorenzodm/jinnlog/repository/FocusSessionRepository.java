@@ -1,6 +1,7 @@
 package com.lorenzodm.jinnlog.repository;
 
 import com.lorenzodm.jinnlog.core.entity.FocusSession;
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -285,7 +286,7 @@ public interface FocusSessionRepository extends JpaRepository<FocusSession, Stri
      * Trova sessioni che necessitano sync
      */
     @Query("SELECT fs FROM FocusSession fs WHERE fs.syncStatus = :status OR fs.lastSyncedAt < :threshold")
-    List<FocusSession> findNeedingSync(@Param("status") String status, @Param("threshold") Instant threshold);
+    List<FocusSession> findNeedingSync(@Param("status") SyncStatus status, @Param("threshold") Instant threshold);
 
     /**
      * Trova sessioni create dopo una certa data

@@ -1,11 +1,11 @@
 /**
  * TopHeader - Barra superiore dell'applicazione
- * 
+ *
  * Features:
  * - Titolo pagina dinamico
  * - Slot per azioni custom
  * - Responsive
- * 
+ *
  * @author Lorenzo DM
  * @since 0.2.0
  */
@@ -15,7 +15,7 @@ export default function TopHeader({ title, actions }) {
             <div className="jl-header-title">
                 <h1>{title}</h1>
             </div>
-            
+
             <div className="jl-header-actions">
                 {actions}
             </div>

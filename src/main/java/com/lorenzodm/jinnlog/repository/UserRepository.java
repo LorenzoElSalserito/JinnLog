@@ -1,5 +1,6 @@
 package com.lorenzodm.jinnlog.repository;
 
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
 import com.lorenzodm.jinnlog.core.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -50,6 +51,11 @@ public interface UserRepository extends JpaRepository<User, String> {
     List<User> findByActiveTrue();
 
     /**
+     * Trova tutti gli utenti attivi non-ghost (per bootstrap profile picker)
+     */
+    List<User> findByActiveTrueAndIsGhostFalse();
+
+    /**
      * Trova utenti creati dopo una certa data
      */
     List<User> findByCreatedAtAfter(Instant date);
@@ -58,7 +64,7 @@ public interface UserRepository extends JpaRepository<User, String> {
      * Trova utenti che necessitano sync (cloud ready)
      */
     @Query("SELECT u FROM User u WHERE u.syncStatus = :status OR u.lastSyncedAt < :threshold")
-    List<User> findNeedingSync(@Param("status") String status, @Param("threshold") Instant threshold);
+    List<User> findNeedingSync(@Param("status") SyncStatus status, @Param("threshold") Instant threshold);
 
     /**
      * Conta utenti attivi
@@ -80,4 +86,10 @@ public interface UserRepository extends JpaRepository<User, String> {
            "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<User> searchRealUsers(@Param("query") String query);
+
+    /**
+     * Trova tutti i ghost users creati da un utente specifico
+     */
+    @Query("SELECT u FROM User u WHERE u.isGhost = true AND u.createdBy.id = :ownerId AND u.active = true")
+    List<User> findGhostsByCreator(@Param("ownerId") String ownerId);
 }

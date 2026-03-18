@@ -100,7 +100,7 @@ public class BootstrapController {
     public ResponseEntity<UserResponse> selectProfile(@PathVariable String userId) {
         log.info("Selezione profilo: {}", userId);
         User selected = bootstrapService.selectProfile(userId);
-        return ResponseEntity.ok(userMapper.toResponse(selected));
+        return ResponseEntity.ok(userMapper.toResponseLight(selected));
     }
 
     /**
@@ -116,7 +116,7 @@ public class BootstrapController {
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
         log.info("Richiesta login per utente: {}", request.userId());
         User user = bootstrapService.login(request.userId(), request.password());
-        return ResponseEntity.ok(userMapper.toResponse(user));
+        return ResponseEntity.ok(userMapper.toResponseLight(user));
     }
 
     /**

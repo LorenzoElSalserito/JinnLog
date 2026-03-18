@@ -27,11 +27,12 @@ public class UserMapper {
                 user.getDisplayName(),
                 user.getAvatarPath(),
                 user.isActive(),
+                user.isGhost(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getLastLoginAt(),
                 user.getLastSyncedAt(),
-                user.getSyncStatus(),
+                user.getSyncStatus() != null ? user.getSyncStatus().name() : null,
                 projectsCount
         );
     }
@@ -47,11 +48,12 @@ public class UserMapper {
                 user.getDisplayName(),
                 user.getAvatarPath(),
                 user.isActive(),
+                user.isGhost(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getLastLoginAt(),
                 user.getLastSyncedAt(),
-                user.getSyncStatus(),
+                user.getSyncStatus() != null ? user.getSyncStatus().name() : null,
                 0 // Skip conteggio per performance
         );
     }

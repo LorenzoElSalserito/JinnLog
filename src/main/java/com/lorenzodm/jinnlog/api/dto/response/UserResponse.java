@@ -16,6 +16,7 @@ public record UserResponse(
         String displayName,
         String avatarPath,
         boolean active,
+        boolean ghost,
         Instant createdAt,
         Instant updatedAt,
         Instant lastLoginAt,

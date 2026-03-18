@@ -3,6 +3,7 @@ package com.lorenzodm.jinnlog.service.impl;
 import com.lorenzodm.jinnlog.api.exception.ConflictException;
 import com.lorenzodm.jinnlog.api.exception.ResourceNotFoundException;
 import com.lorenzodm.jinnlog.core.entity.Notification;
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
 import com.lorenzodm.jinnlog.core.entity.User;
 import com.lorenzodm.jinnlog.core.entity.UserConnection;
 import com.lorenzodm.jinnlog.repository.UserConnectionRepository;
@@ -125,12 +126,83 @@ public class UserConnectionServiceImpl implements UserConnectionService {
     @Override
     public List<User> searchFriends(String userId, String query) {
         if (query == null || query.isBlank()) return List.of();
-        
+
         String lowerQuery = query.toLowerCase();
         return listFriends(userId).stream()
                 .filter(u -> (u.getUsername() != null && u.getUsername().toLowerCase().contains(lowerQuery)) ||
                              (u.getDisplayName() != null && u.getDisplayName().toLowerCase().contains(lowerQuery)) ||
                              (u.getEmail() != null && u.getEmail().toLowerCase().contains(lowerQuery)))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<User> listGhosts(String userId) {
+        return userRepository.findGhostsByCreator(userId);
+    }
+
+    @Override
+    public User createGhostGlobal(String creatorId, String username, String displayName) {
+        if (userRepository.existsByUsernameIgnoreCase(username)) {
+            throw new ConflictException("Username già esistente: " + username);
+        }
+
+        User creator = userRepository.findById(creatorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente creatore non trovato"));
+
+        User ghost = new User();
+        ghost.setUsername(username);
+        ghost.setDisplayName(displayName);
+        ghost.setGhost(true);
+        ghost.setCreatedBy(creator);
+        ghost.setActive(true);
+        ghost.setSyncStatus(SyncStatus.LOCAL_ONLY);
+        ghost.setPasswordHash("");
+
+        return userRepository.save(ghost);
+    }
+
+    @Override
+    public User updateGhost(String userId, String ghostId, String username, String displayName) {
+        User ghost = userRepository.findById(ghostId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ghost user non trovato: " + ghostId));
+
+        if (!ghost.isGhost()) {
+            throw new ConflictException("L'utente non è un ghost user");
+        }
+
+        if (ghost.getCreatedBy() == null || !ghost.getCreatedBy().getId().equals(userId)) {
+            throw new ConflictException("Non sei il creatore di questo ghost user");
+        }
+
+        if (username != null && !username.isBlank() && !username.equalsIgnoreCase(ghost.getUsername())) {
+            if (userRepository.existsByUsernameIgnoreCase(username)) {
+                throw new ConflictException("Username già esistente: " + username);
+            }
+            ghost.setUsername(username);
+        }
+
+        if (displayName != null && !displayName.isBlank()) {
+            ghost.setDisplayName(displayName);
+        }
+
+        return userRepository.save(ghost);
+    }
+
+    @Override
+    public void deleteGhost(String userId, String ghostId) {
+        User ghost = userRepository.findById(ghostId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ghost user non trovato: " + ghostId));
+
+        if (!ghost.isGhost()) {
+            throw new ConflictException("L'utente non è un ghost user");
+        }
+
+        if (ghost.getCreatedBy() == null || !ghost.getCreatedBy().getId().equals(userId)) {
+            throw new ConflictException("Non sei il creatore di questo ghost user");
+        }
+
+        // Hard delete: ghost users are fictional, no need to keep them
+        userRepository.delete(ghost);
     }
 }

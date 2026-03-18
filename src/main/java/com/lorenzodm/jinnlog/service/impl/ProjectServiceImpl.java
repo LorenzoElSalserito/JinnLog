@@ -246,7 +246,10 @@ public class ProjectServiceImpl implements ProjectService {
         long overdueCount = p.getTasks().stream()
                 .filter(t -> t.getDeadline() != null)
                 .filter(t -> LocalDate.now().isAfter(t.getDeadline()))
-                .filter(t -> !"DONE".equals(t.getStatus()) && !"COMPLETED".equals(t.getStatus()))
+                .filter(t -> {
+                    String statusName = t.getStatus() != null ? t.getStatus().getName().toUpperCase() : "";
+                    return !"DONE".equals(statusName) && !"COMPLETED".equals(statusName);
+                })
                 .count();
 
         p.setOverdueCount((int) overdueCount);

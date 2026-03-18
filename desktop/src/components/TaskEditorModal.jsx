@@ -7,6 +7,8 @@ import { toast } from "react-toastify";
 import PortalModal from "./PortalModal.jsx";
 import { jinn } from "../api/jinn";
 import { useTranslation } from 'react-i18next';
+import { useWorkflow } from "../context/WorkflowContext.jsx";
+import { useModal } from "../hooks/useModal.js";
 
 /**
  * TaskEditorModal - Modale per creare/editare task
@@ -19,20 +21,38 @@ export default function TaskEditorModal({
                                             task = null,
                                             projectId,
                                             onSave,
-                                            onNavigateToNote // Callback per navigare alla pagina note
+                                            onNavigateToNote, // Callback per navigare alla pagina note
+                                            defaults = null   // { plannedStart, plannedFinish, deadline } for pre-filling new tasks
                                         }) {
     const { t } = useTranslation();
-    
+    const { statuses, priorities, getStatusByName, getPriorityByName } = useWorkflow();
+    const modal = useModal();
+
     // Form state
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [markdownNotes, setMarkdownNotes] = useState("");
-    const [status, setStatus] = useState("TODO");
-    const [priority, setPriority] = useState("MED");
+    const [statusId, setStatusId] = useState("");
+    const [priorityId, setPriorityId] = useState("");
     const [deadline, setDeadline] = useState(null);
     const [owner, setOwner] = useState("");
+    const [assignedToId, setAssignedToId] = useState("");
     const [tags, setTags] = useState([]);
     const [newTag, setNewTag] = useState("");
+    
+    // New fields for Gantt support
+    const [taskType, setTaskType] = useState("TASK");
+    const [plannedStart, setPlannedStart] = useState(null);
+    const [plannedFinish, setPlannedFinish] = useState(null);
+    const [estimatedEffort, setEstimatedEffort] = useState("");
+    const [effortManual, setEffortManual] = useState(false); // true = user edited manually
+
+    // Checklist
+    const [checklistItems, setChecklistItems] = useState([]);
+    const [newChecklistItem, setNewChecklistItem] = useState("");
+
+    // Team Members
+    const [members, setMembers] = useState([]);
 
     // Assets state
     const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -51,22 +71,39 @@ export default function TaskEditorModal({
     const notesEndRef = useRef(null);
     const currentUserId = jinn.getCurrentUser();
 
+    // Task Types
+    const taskTypes = [
+        "TASK", "MILESTONE", "MEETING", "CALL", "APPOINTMENT",
+        "DEADLINE", "REMINDER", "TASK_BLOCK", "SUMMARY_TASK"
+    ];
+
     const resetForm = useCallback(() => {
         setTitle("");
         setDescription("");
         setMarkdownNotes("");
-        setStatus("TODO");
-        setPriority("MED");
+        const defaultStatus = getStatusByName("TODO");
+        setStatusId(defaultStatus?.id || (statuses[0]?.id ?? ""));
+        const defaultPriority = getPriorityByName("MEDIUM");
+        setPriorityId(defaultPriority?.id || (priorities[0]?.id ?? ""));
         setDeadline(null);
         setOwner("");
         setTags([]);
+        
+        // Reset Gantt fields
+        setTaskType("TASK");
+        setPlannedStart(null);
+        setPlannedFinish(null);
+        setEstimatedEffort("");
+        setEffortManual(false);
+        
+        setChecklistItems([]);
         setUploadedFiles([]);
         setExistingAssets([]);
         setErrors({});
         setActiveTab("details");
         setTaskNotes([]);
         setNewNoteContent("");
-    }, []);
+    }, [statuses, priorities, getStatusByName, getPriorityByName]);
 
     const loadTaskNotes = useCallback(async (taskId) => {
         try {
@@ -80,25 +117,70 @@ export default function TaskEditorModal({
             setLoadingNotes(false);
         }
     }, []);
+    
+    // Load members when modal opens
+    useEffect(() => {
+        if (show && projectId) {
+            const loadMembers = async () => {
+                try {
+                    const list = await jinn.projectMembersList(projectId);
+                    setMembers(list || []);
+                    
+                    // If new task, default assignedTo to project owner
+                    if (!task && list && list.length > 0) {
+                        const projectOwner = list.find(m => m.role === 'OWNER');
+                        if (projectOwner) {
+                            setOwner(projectOwner.user.displayName || projectOwner.user.username);
+                            setAssignedToId(projectOwner.user.id);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load project members", e);
+                }
+            };
+            loadMembers();
+        }
+    }, [show, projectId, task]);
 
     useEffect(() => {
         if (show && task) {
             setTitle(task.title || "");
             setDescription(task.description || "");
-            setMarkdownNotes(task.notes || "");
-            setStatus(task.status || "TODO");
-            setPriority(task.priority || "MED");
+            setMarkdownNotes(task.markdownNotes || task.notes || "");
+            setStatusId(task.statusId || (getStatusByName(task.statusName)?.id) || "");
+            setPriorityId(task.priorityId || (getPriorityByName(task.priorityName)?.id) || "");
             setDeadline(task.deadline ? new Date(task.deadline) : null);
             setOwner(task.owner || "");
+            setAssignedToId(task.assignedToId || "");
             setTags(task.tags || []);
-            setExistingAssets(task.assets || []);
             
+            // Populate Gantt fields
+            setTaskType(task.type || "TASK");
+            setPlannedStart(task.plannedStart ? new Date(task.plannedStart) : null);
+            setPlannedFinish(task.plannedFinish ? new Date(task.plannedFinish) : null);
+            setEstimatedEffort(task.estimatedEffort || "");
+            setEffortManual(!!task.estimatedEffort); // respect existing effort
+
+            setChecklistItems(task.checklistItems || []);
+            setExistingAssets(task.assets || []);
+
             // Load notes if tab is active or just pre-load
             loadTaskNotes(task.id);
         } else if (show) {
             resetForm();
+            // Apply defaults for new task (e.g. dates from calendar click)
+            if (defaults) {
+                if (defaults.plannedStart) setPlannedStart(defaults.plannedStart);
+                if (defaults.plannedFinish) setPlannedFinish(defaults.plannedFinish);
+                if (defaults.deadline) setDeadline(defaults.deadline);
+                // Auto-calc effort from default dates
+                if (defaults.plannedStart && defaults.plannedFinish) {
+                    const mins = calcEffortFromDates(defaults.plannedStart, defaults.plannedFinish);
+                    if (mins) setEstimatedEffort(String(mins));
+                }
+            }
         }
-    }, [show, task, loadTaskNotes, resetForm]);
+    }, [show, task, loadTaskNotes, resetForm, getStatusByName, getPriorityByName, defaults]);
 
     useEffect(() => {
         if (activeTab === "notes" && notesEndRef.current) {
@@ -125,7 +207,11 @@ export default function TaskEditorModal({
     };
 
     const handleDeleteNote = async (noteId) => {
-        if (!confirm(t("Delete this note?"))) return;
+        const confirmed = await modal.confirm({
+            title: t("Delete this note?"),
+            message: t("Are you sure you want to delete this note? This action is irreversible.")
+        });
+        if (!confirmed) return;
         try {
             await jinn.notesDelete(noteId);
             setTaskNotes(prev => prev.filter(n => n.id !== noteId));
@@ -139,6 +225,76 @@ export default function TaskEditorModal({
             onNavigateToNote(note);
             onHide(); // Chiudi la modale
         }
+    };
+
+    // Auto-calculate effort from planned dates (business days × 480 min = 8h/day)
+    const calcEffortFromDates = useCallback((start, finish) => {
+        if (!start || !finish || finish <= start) return null;
+        const msPerDay = 86400000;
+        let days = 0;
+        const cur = new Date(start);
+        cur.setHours(0, 0, 0, 0);
+        const end = new Date(finish);
+        end.setHours(0, 0, 0, 0);
+        while (cur < end) {
+            const dow = cur.getDay();
+            if (dow !== 0 && dow !== 6) days++; // skip weekends
+            cur.setDate(cur.getDate() + 1);
+        }
+        return Math.max(1, days) * 480; // min 1 day = 480 min
+    }, []);
+
+    // Auto-behavior handlers
+    const handleTypeChange = (e) => {
+        const newType = e.target.value;
+        setTaskType(newType);
+        
+        if (newType === "MILESTONE") {
+            if (plannedStart) {
+                setPlannedFinish(plannedStart);
+            }
+            setEstimatedEffort("");
+        }
+    };
+
+    const handlePlannedStartChange = (date) => {
+        setPlannedStart(date);
+
+        if (date) {
+            let newFinish = plannedFinish;
+            if (taskType === "MILESTONE") {
+                newFinish = date;
+                setPlannedFinish(date);
+            } else if (!plannedFinish) {
+                const nextDay = new Date(date);
+                nextDay.setDate(nextDay.getDate() + 1);
+                newFinish = nextDay;
+                setPlannedFinish(nextDay);
+            } else if (plannedFinish < date) {
+                const nextDay = new Date(date);
+                nextDay.setDate(nextDay.getDate() + 1);
+                newFinish = nextDay;
+                setPlannedFinish(nextDay);
+            }
+            // Auto-calc effort if not manually set
+            if (!effortManual && taskType !== "MILESTONE" && newFinish) {
+                const mins = calcEffortFromDates(date, newFinish);
+                if (mins) setEstimatedEffort(String(mins));
+            }
+        }
+    };
+
+    const handlePlannedFinishChange = (date) => {
+        setPlannedFinish(date);
+        if (!effortManual && taskType !== "MILESTONE" && plannedStart && date) {
+            const mins = calcEffortFromDates(plannedStart, date);
+            if (mins) setEstimatedEffort(String(mins));
+        }
+    };
+
+    const handleEffortManualChange = (e) => {
+        setEffortManual(true);
+        setEstimatedEffort(e.target.value);
     };
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -162,10 +318,40 @@ export default function TaskEditorModal({
         setTags(tags.filter((t) => t !== tagToRemove));
     };
 
+    // Checklist functions
+    const addChecklistItem = () => {
+        if (!newChecklistItem.trim()) return;
+        const newItem = {
+            id: `temp-${Date.now()}`, // Temporary ID for new items
+            content: newChecklistItem.trim(),
+            done: false
+        };
+        setChecklistItems([...checklistItems, newItem]);
+        setNewChecklistItem("");
+    };
+
+    const toggleChecklistItem = (index) => {
+        const newItems = [...checklistItems];
+        newItems[index].done = !newItems[index].done;
+        setChecklistItems(newItems);
+    };
+
+    const removeChecklistItem = (index) => {
+        const newItems = [...checklistItems];
+        newItems.splice(index, 1);
+        setChecklistItems(newItems);
+    };
+
     const validateForm = () => {
         const newErrors = {};
         if (!title.trim()) newErrors.title = t("Title is required");
         if (title.length > 500) newErrors.title = t("Title cannot exceed 500 characters");
+        
+        if (plannedStart && plannedFinish && plannedFinish < plannedStart) {
+            newErrors.dates = t("End date cannot be before start date");
+            toast.error(t("End date cannot be before start date"));
+        }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -187,12 +373,24 @@ export default function TaskEditorModal({
             const taskData = {
                 title: title.trim(),
                 description: description.trim(),
-                notes: markdownNotes,
-                status,
-                priority,
+                markdownNotes: markdownNotes,
+                statusId,
+                priorityId,
                 deadline: deadline ? deadline.toISOString().split('T')[0] : null,
                 owner: owner.trim(),
+                assignedToId: assignedToId || null,
+
+                // Gantt fields
+                type: taskType,
+                plannedStart: plannedStart ? plannedStart.toISOString().replace('Z', '') : null,
+                plannedFinish: plannedFinish ? plannedFinish.toISOString().replace('Z', '') : null,
+                estimatedEffort: estimatedEffort ? parseInt(estimatedEffort) : null,
+                
                 tags,
+                checklistItems: checklistItems.map(item => ({
+                    content: item.content,
+                    done: item.done
+                })),
                 projectId,
             };
 
@@ -305,12 +503,14 @@ export default function TaskEditorModal({
                                     <label className="form-label fw-bold">{t("Status")}</label>
                                     <select
                                         className="form-select"
-                                        value={status}
-                                        onChange={(e) => setStatus(e.target.value)}
+                                        value={statusId}
+                                        onChange={(e) => setStatusId(e.target.value)}
                                     >
-                                        <option value="TODO">TODO</option>
-                                        <option value="DOING">DOING</option>
-                                        <option value="DONE">DONE</option>
+                                        {statuses.map(s => (
+                                            <option key={s.id} value={s.id} style={{ color: s.color }}>
+                                                {s.name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -318,12 +518,14 @@ export default function TaskEditorModal({
                                     <label className="form-label fw-bold">{t("Priority")}</label>
                                     <select
                                         className="form-select"
-                                        value={priority}
-                                        onChange={(e) => setPriority(e.target.value)}
+                                        value={priorityId}
+                                        onChange={(e) => setPriorityId(e.target.value)}
                                     >
-                                        <option value="LOW">LOW</option>
-                                        <option value="MED">MEDIUM</option>
-                                        <option value="HIGH">HIGH</option>
+                                        {priorities.map(p => (
+                                            <option key={p.id} value={p.id} style={{ color: p.color }}>
+                                                {p.name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -343,13 +545,182 @@ export default function TaskEditorModal({
 
                                 <div className="col-md-3">
                                     <label className="form-label fw-bold">{t("Owner")}</label>
+                                    <select
+                                        className="form-select"
+                                        value={assignedToId}
+                                        onChange={(e) => {
+                                            const userId = e.target.value;
+                                            setAssignedToId(userId);
+                                            const member = members.find(m => m.user.id === userId);
+                                            setOwner(member ? (member.user.displayName || member.user.username) : "");
+                                        }}
+                                    >
+                                        <option value="">{t("Select owner...")}</option>
+                                        {members.map(m => (
+                                            <option key={m.user.id} value={m.user.id}>
+                                                {m.user.displayName || m.user.username}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            {/* Row: Type, Planned Start, Planned Finish, Estimated Effort */}
+                            <div className="row mb-3 bg-light p-2 rounded border">
+                                <div className="col-12 mb-2">
+                                    <small className="text-muted text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>
+                                        {t("Planning & Gantt")}
+                                    </small>
+                                </div>
+                                <div className="col-md-3">
+                                    <label className="form-label fw-bold small">{t("Type")}</label>
+                                    <select
+                                        className="form-select form-select-sm"
+                                        value={taskType}
+                                        onChange={handleTypeChange}
+                                    >
+                                        {taskTypes.map(type => (
+                                            <option key={type} value={type}>
+                                                {t(type)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                <div className="col-md-3">
+                                    <label className="form-label fw-bold small">{t("Planned Start")}</label>
+                                    <div className="d-block">
+                                        <DatePicker
+                                            selected={plannedStart}
+                                            onChange={handlePlannedStartChange}
+                                            dateFormat="dd/MM/yyyy HH:mm"
+                                            timeFormat="HH:mm"
+                                            showTimeSelect
+                                            placeholderText={t("Start Date")}
+                                            className="form-control form-control-sm w-100"
+                                            isClearable
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="col-md-3">
+                                    <label className="form-label fw-bold small">{t("Planned Finish")}</label>
+                                    <div className="d-block">
+                                        {taskType !== "MILESTONE" ? (
+                                            <DatePicker
+                                                selected={plannedFinish}
+                                                onChange={handlePlannedFinishChange}
+                                                dateFormat="dd/MM/yyyy HH:mm"
+                                                timeFormat="HH:mm"
+                                                showTimeSelect
+                                                placeholderText={t("End Date")}
+                                                className={`form-control form-control-sm w-100 ${errors.dates ? "is-invalid" : ""}`}
+                                                minDate={plannedStart}
+                                                isClearable
+                                            />
+                                        ) : (
+                                            <input 
+                                                type="text" 
+                                                className="form-control form-control-sm" 
+                                                value={plannedStart ? plannedStart.toLocaleString() : "-"} 
+                                                disabled 
+                                            />
+                                        )}
+                                        {errors.dates && <div className="invalid-feedback">{errors.dates}</div>}
+                                    </div>
+                                </div>
+                                
+                                <div className="col-md-3">
+                                    <label className="form-label fw-bold small">
+                                        {t("Estimated Effort")}
+                                        {!effortManual && estimatedEffort && taskType !== "MILESTONE" && (
+                                            <i className="bi bi-calculator ms-1 text-info" title={t("Auto-calculated from dates")} style={{fontSize: '0.75rem'}}></i>
+                                        )}
+                                    </label>
+                                    {taskType !== "MILESTONE" ? (
+                                        <>
+                                            <div className="input-group input-group-sm">
+                                                <input
+                                                    type="number"
+                                                    className="form-control"
+                                                    placeholder="0"
+                                                    value={estimatedEffort}
+                                                    onChange={handleEffortManualChange}
+                                                    min="0"
+                                                />
+                                                <span className="input-group-text">{t("min")}</span>
+                                            </div>
+                                            {estimatedEffort && Number(estimatedEffort) >= 480 && (
+                                                <small className="text-muted" style={{fontSize: '0.7rem'}}>
+                                                    ≈ {(Number(estimatedEffort) / 480).toFixed(1)} {t("days")} (8h/{t("day")})
+                                                </small>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <input type="text" className="form-control form-control-sm" value="0 min" disabled />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Checklist */}
+                            <div className="mb-3">
+                                <label className="form-label fw-bold">{t("Checklist")}</label>
+                                <div className="input-group mb-2">
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder={t("Owner name")}
-                                        value={owner}
-                                        onChange={(e) => setOwner(e.target.value)}
+                                        placeholder={t("Add checklist item...")}
+                                        value={newChecklistItem}
+                                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                                        onKeyPress={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                addChecklistItem();
+                                            }
+                                        }}
                                     />
+                                    <button
+                                        className="btn btn-outline-secondary"
+                                        type="button"
+                                        onClick={addChecklistItem}
+                                        disabled={!newChecklistItem.trim()}
+                                    >
+                                        <i className="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                                <div className="list-group">
+                                    {checklistItems.map((item, index) => (
+                                        <div key={index} className="list-group-item d-flex align-items-center justify-content-between p-2">
+                                            <div className="form-check d-flex align-items-center flex-grow-1">
+                                                <input
+                                                    className="form-check-input me-2"
+                                                    type="checkbox"
+                                                    checked={item.done}
+                                                    onChange={() => toggleChecklistItem(index)}
+                                                    id={`checklist-item-${index}`}
+                                                />
+                                                <label 
+                                                    className={`form-check-label ${item.done ? 'text-decoration-line-through text-muted' : ''}`}
+                                                    htmlFor={`checklist-item-${index}`}
+                                                    style={{ cursor: "pointer", width: "100%" }}
+                                                >
+                                                    {item.content}
+                                                </label>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="btn btn-link text-danger p-0 ms-2"
+                                                onClick={() => removeChecklistItem(index)}
+                                            >
+                                                <i className="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {checklistItems.length > 0 && (
+                                        <div className="mt-2 small text-muted">
+                                            {Math.round((checklistItems.filter(i => i.done).length / checklistItems.length) * 100)}% {t("completed")}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

@@ -10,6 +10,7 @@ import com.lorenzodm.jinnlog.api.exception.UnauthorizedException;
 import com.lorenzodm.jinnlog.api.mapper.UserMapper;
 import com.lorenzodm.jinnlog.core.entity.AppPreference;
 import com.lorenzodm.jinnlog.core.entity.Asset;
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
 import com.lorenzodm.jinnlog.core.entity.User;
 import com.lorenzodm.jinnlog.repository.AppPreferenceRepository;
 import com.lorenzodm.jinnlog.repository.AssetRepository;
@@ -103,8 +104,8 @@ public class BootstrapServiceImpl implements BootstrapService {
     public BootstrapResponse getBootstrapData() {
         log.debug("Caricamento dati bootstrap...");
 
-        // Load all active users
-        List<User> users = userRepository.findByActiveTrue();
+        // Load all active non-ghost users (ghosts should not appear in profile picker)
+        List<User> users = userRepository.findByActiveTrueAndIsGhostFalse();
 
         // Sort by lastLoginAt descending (most recent first), handling nulls
         users.sort((a, b) -> {
@@ -181,7 +182,7 @@ public class BootstrapServiceImpl implements BootstrapService {
         user.setPasswordHash(passwordService.hash(passwordToHash));
         
         user.setActive(true);
-        user.setSyncStatus("LOCAL_ONLY");
+        user.setSyncStatus(SyncStatus.LOCAL_ONLY);
         user.setLastLoginAt(Instant.now()); // Set as "just used"
 
         User saved = userRepository.save(user);
@@ -388,10 +389,10 @@ public class BootstrapServiceImpl implements BootstrapService {
             String lastUserId = getPreferenceValue(AppPreference.KEY_LAST_USER_ID, "");
             if (lastUserId.isBlank()) {
                 log.info("Auto-detect: trovati {} utenti ma nessun lastUserId. Cerco il più recente.", userCount);
-                List<User> users = userRepository.findByActiveTrue();
-                if (!users.isEmpty()) {
+                List<User> realUsers = userRepository.findByActiveTrueAndIsGhostFalse();
+                if (!realUsers.isEmpty()) {
                     // Pick the first one (should be most recent or random)
-                    User candidate = users.get(0);
+                    User candidate = realUsers.get(0);
                     updatePreferenceValue(AppPreference.KEY_LAST_USER_ID, candidate.getId());
                     log.info("Auto-detect: impostato lastUserId={}", candidate.getId());
                 }

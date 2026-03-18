@@ -21,7 +21,7 @@ public class AssetMapper {
                 a.getCreatedAt(),
                 a.getLastAccessedAt(),
                 a.getLastSyncedAt(),
-                a.getSyncStatus(),
+                a.getSyncStatus() != null ? a.getSyncStatus().name() : null,
                 a.getCloudUrl(),
                 a.getOwner() != null ? a.getOwner().getId() : null
         );

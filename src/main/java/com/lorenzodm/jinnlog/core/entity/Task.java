@@ -23,16 +23,17 @@ import java.util.Set;
  *
  * @author Lorenzo DM
  * @since 1.0.0
- * @version 0.5.2
+ * @version 0.6.1
  */
 @Entity
 @Table(name = "tasks", indexes = {
         @Index(name = "idx_task_project", columnList = "project_id"),
         @Index(name = "idx_task_assigned", columnList = "assigned_to_id"),
-        @Index(name = "idx_task_status", columnList = "status"),
-        @Index(name = "idx_task_priority", columnList = "priority"),
+        @Index(name = "idx_task_status", columnList = "status_id"),
+        @Index(name = "idx_task_priority", columnList = "priority_id"),
         @Index(name = "idx_task_deadline", columnList = "deadline"),
-        @Index(name = "idx_task_created", columnList = "created_at")
+        @Index(name = "idx_task_created", columnList = "created_at"),
+        @Index(name = "idx_task_parent", columnList = "parent_task_id")
 })
 @SQLDelete(sql = "UPDATE tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @Where(clause = "deleted_at IS NULL")
@@ -49,7 +50,9 @@ public class Task extends BaseSyncEntity {
         APPOINTMENT,
         DEADLINE,
         REMINDER,
-        TASK_BLOCK
+        TASK_BLOCK,
+        SUMMARY_TASK, // Added for Phase 2 readiness
+        MILESTONE     // Added for Phase 2 readiness
     }
 
     /**
@@ -79,11 +82,13 @@ public class Task extends BaseSyncEntity {
 
     /* Workflow status and priority */
 
-    @Column(nullable = false, length = 20)
-    private String status = "TODO";
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "status_id")
+    private TaskStatus status;
 
-    @Column(nullable = false, length = 20)
-    private String priority = "MED";
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "priority_id")
+    private TaskPriority priority;
 
     /* Scheduling and Deadlines */
 
@@ -91,10 +96,10 @@ public class Task extends BaseSyncEntity {
     private LocalDate deadline;
 
     @Column
-    private LocalDateTime scheduledStart; // For Resource View / Calendar
+    private LocalDateTime plannedStart; 
 
     @Column
-    private LocalDateTime scheduledEnd;   // For Resource View / Calendar
+    private LocalDateTime plannedFinish;   
 
     /* Legacy fields (to be refactored) */
     @Column(length = 200)
@@ -122,14 +127,14 @@ public class Task extends BaseSyncEntity {
     /* Time Tracking */
 
     @Column
-    private Integer estimatedMinutes;
+    private Integer estimatedEffort; // In minutes
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private DurationUnit durationUnit = DurationUnit.MINUTES; // Default
 
     @Column(nullable = false)
-    private Integer actualMinutes = 0;
+    private Integer actualEffort = 0; // In minutes
 
     /* Attachments (Simple storage) */
 
@@ -185,8 +190,18 @@ public class Task extends BaseSyncEntity {
     @OrderBy("sortOrder ASC")
     private List<TaskChecklistItem> checklistItems = new ArrayList<>();
 
+    /* Parent-Child Hierarchy (SUMMARY_TASK support - PRD-08) */
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_task_id")
+    private Task parentTask;
+
+    @OneToMany(mappedBy = "parentTask", fetch = FetchType.LAZY)
+    @OrderBy("sortOrder ASC")
+    private List<Task> childTasks = new ArrayList<>();
+
     /* Dependencies (Self-referencing ManyToMany) */
-    
+
     @ManyToMany
     @JoinTable(
             name = "task_dependencies",
@@ -226,16 +241,22 @@ public class Task extends BaseSyncEntity {
     public void setDescription(String description) { this.description = description; }
     public Type getType() { return type; }
     public void setType(Type type) { this.type = type; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public String getPriority() { return priority; }
-    public void setPriority(String priority) { this.priority = priority; }
+    
+    public TaskStatus getStatus() { return status; }
+    public void setStatus(TaskStatus status) { this.status = status; }
+    
+    public TaskPriority getPriority() { return priority; }
+    public void setPriority(TaskPriority priority) { this.priority = priority; }
+    
     public LocalDate getDeadline() { return deadline; }
     public void setDeadline(LocalDate deadline) { this.deadline = deadline; }
-    public LocalDateTime getScheduledStart() { return scheduledStart; }
-    public void setScheduledStart(LocalDateTime scheduledStart) { this.scheduledStart = scheduledStart; }
-    public LocalDateTime getScheduledEnd() { return scheduledEnd; }
-    public void setScheduledEnd(LocalDateTime scheduledEnd) { this.scheduledEnd = scheduledEnd; }
+    
+    public LocalDateTime getPlannedStart() { return plannedStart; }
+    public void setPlannedStart(LocalDateTime plannedStart) { this.plannedStart = plannedStart; }
+    
+    public LocalDateTime getPlannedFinish() { return plannedFinish; }
+    public void setPlannedFinish(LocalDateTime plannedFinish) { this.plannedFinish = plannedFinish; }
+    
     public String getOwner() { return owner; }
     public void setOwner(String owner) { this.owner = owner; }
     public String getNotes() { return notes; }
@@ -248,12 +269,16 @@ public class Task extends BaseSyncEntity {
     public void setReminderEnabled(boolean reminderEnabled) { this.reminderEnabled = reminderEnabled; }
     public boolean isNotificationSent() { return notificationSent; }
     public void setNotificationSent(boolean notificationSent) { this.notificationSent = notificationSent; }
-    public Integer getEstimatedMinutes() { return estimatedMinutes; }
-    public void setEstimatedMinutes(Integer estimatedMinutes) { this.estimatedMinutes = estimatedMinutes; }
+    
+    public Integer getEstimatedEffort() { return estimatedEffort; }
+    public void setEstimatedEffort(Integer estimatedEffort) { this.estimatedEffort = estimatedEffort; }
+    
     public DurationUnit getDurationUnit() { return durationUnit; }
     public void setDurationUnit(DurationUnit durationUnit) { this.durationUnit = durationUnit; }
-    public Integer getActualMinutes() { return actualMinutes; }
-    public void setActualMinutes(Integer actualMinutes) { this.actualMinutes = actualMinutes; }
+    
+    public Integer getActualEffort() { return actualEffort; }
+    public void setActualEffort(Integer actualEffort) { this.actualEffort = actualEffort; }
+    
     public String getAssetPath() { return assetPath; }
     public void setAssetPath(String assetPath) { this.assetPath = assetPath; }
     public String getAssetFileName() { return assetFileName; }
@@ -281,6 +306,10 @@ public class Task extends BaseSyncEntity {
     public void setTags(Set<Tag> tags) { this.tags = tags; }
     public List<TaskChecklistItem> getChecklistItems() { return checklistItems; }
     public void setChecklistItems(List<TaskChecklistItem> checklistItems) { this.checklistItems = checklistItems; }
+    public Task getParentTask() { return parentTask; }
+    public void setParentTask(Task parentTask) { this.parentTask = parentTask; }
+    public List<Task> getChildTasks() { return childTasks; }
+    public void setChildTasks(List<Task> childTasks) { this.childTasks = childTasks; }
     public Set<Task> getBlockers() { return blockers; }
     public void setBlockers(Set<Task> blockers) { this.blockers = blockers; }
     public Set<Task> getBlockedTasks() { return blockedTasks; }
@@ -329,7 +358,13 @@ public class Task extends BaseSyncEntity {
      * @return true if there are active blockers, false otherwise.
      */
     public boolean isBlocked() {
-        return blockers.stream().anyMatch(t -> !"DONE".equals(t.getStatus()) && !"COMPLETED".equals(t.getStatus()));
+        if (blockers.isEmpty()) return false;
+        
+        // Updated to use semantic category on TaskStatus
+        return blockers.stream().anyMatch(t -> {
+            if (t.getStatus() == null) return true; // No status is considered not done
+            return !t.getStatus().isCompleted();
+        });
     }
 
     /**
@@ -346,7 +381,7 @@ public class Task extends BaseSyncEntity {
      */
     public boolean isOverdue() {
         if (deadline == null) return false;
-        if ("DONE".equals(status) || "COMPLETED".equals(status)) return false;
+        if (status != null && status.isCompleted()) return false;
         return LocalDate.now().isAfter(deadline);
     }
 

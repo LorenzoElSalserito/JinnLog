@@ -2,10 +2,12 @@ package com.lorenzodm.jinnlog.api.controller;
 
 import com.lorenzodm.jinnlog.api.dto.request.CreateTaskRequest;
 import com.lorenzodm.jinnlog.api.dto.request.UpdateTaskRequest;
-import com.lorenzodm.jinnlog.api.dto.request.UpdateTaskStatusRequest;
+import com.lorenzodm.jinnlog.api.dto.request.ChangeTaskStatusRequest;
+import com.lorenzodm.jinnlog.api.dto.response.GanttTaskResponse;
 import com.lorenzodm.jinnlog.api.dto.response.TaskResponse;
 import com.lorenzodm.jinnlog.api.mapper.TaskMapper;
 import com.lorenzodm.jinnlog.core.entity.Task;
+import com.lorenzodm.jinnlog.service.PlanningEngine;
 import com.lorenzodm.jinnlog.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +23,12 @@ public class TaskController {
 
     private final TaskService taskService;
     private final TaskMapper taskMapper;
+    private final PlanningEngine planningEngine;
 
-    public TaskController(TaskService taskService, TaskMapper taskMapper) {
+    public TaskController(TaskService taskService, TaskMapper taskMapper, PlanningEngine planningEngine) {
         this.taskService = taskService;
         this.taskMapper = taskMapper;
+        this.planningEngine = planningEngine;
     }
 
     @PostMapping
@@ -72,7 +76,7 @@ public class TaskController {
             @PathVariable String userId,
             @PathVariable String projectId,
             @PathVariable String taskId,
-            @Valid @RequestBody UpdateTaskStatusRequest req
+            @Valid @RequestBody ChangeTaskStatusRequest req
     ) {
         return ResponseEntity.ok(taskMapper.toResponse(taskService.updateStatus(userId, projectId, taskId, req)));
     }
@@ -118,5 +122,25 @@ public class TaskController {
     ) {
         taskService.removeBlocker(userId, projectId, taskId, blockerTaskId);
         return ResponseEntity.ok().build();
+    }
+
+    // --- Gantt / Timeline View (PRD-10) ---
+
+    @GetMapping("/gantt")
+    public ResponseEntity<List<GanttTaskResponse>> gantt(
+            @PathVariable String userId,
+            @PathVariable String projectId
+    ) {
+        return ResponseEntity.ok(planningEngine.buildGanttData(projectId));
+    }
+
+    @DeleteMapping("/{taskId}")
+    public ResponseEntity<Void> delete(
+            @PathVariable String userId,
+            @PathVariable String projectId,
+            @PathVariable String taskId
+    ) {
+        taskService.delete(userId, projectId, taskId);
+        return ResponseEntity.noContent().build();
     }
 }

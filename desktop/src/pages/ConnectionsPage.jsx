@@ -2,15 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { jinn } from '../api/jinn';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
+import PortalModal from '../components/PortalModal';
+import { useModal } from '../hooks/useModal.js';
 
 export default function ConnectionsPage({ shell }) {
     const { t } = useTranslation();
+    const modal = useModal();
     const [friends, setFriends] = useState([]);
+    const [ghosts, setGhosts] = useState([]);
     const [pendingIncoming, setPendingIncoming] = useState([]);
     const [pendingOutgoing, setPendingOutgoing] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [ghostName, setGhostName] = useState('');
+    const [ghostUsername, setGhostUsername] = useState('');
+    const [creatingGhost, setCreatingGhost] = useState(false);
+    const [projects, setProjects] = useState([]);
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [newGhostId, setNewGhostId] = useState(null);
+    const [newGhostName, setNewGhostName] = useState('');
+    const [selectedProjects, setSelectedProjects] = useState(new Set());
+    const [assigning, setAssigning] = useState(false);
+
+    // Edit ghost state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editGhost, setEditGhost] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editUsername, setEditUsername] = useState('');
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         shell?.setTitle?.(t("JinnLoggers"));
@@ -26,29 +46,98 @@ export default function ConnectionsPage({ shell }) {
                 </div>
             </div>
         );
+        shell?.setHeaderActions?.(null);
+
         loadData();
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+            shell?.setRightPanel?.(null);
+        };
     }, [shell, t]);
 
     const loadData = async () => {
         try {
             setLoading(true);
-            
-            // Fetch parallelo usando le API di jinn.js che puntano agli endpoint corretti (/api/connections)
-            const [friendsList, incoming, outgoing] = await Promise.all([
+
+            const [friendsList, ghostsList, incoming, outgoing, projectsList] = await Promise.all([
                 jinn.connectionsList(),
+                jinn.ghostsList(),
                 jinn.connectionsPendingIncoming(),
-                jinn.connectionsPendingOutgoing()
+                jinn.connectionsPendingOutgoing(),
+                jinn.projectsList().catch(() => [])
             ]);
 
             setFriends(friendsList);
+            setGhosts(ghostsList);
             setPendingIncoming(incoming);
             setPendingOutgoing(outgoing);
+            setProjects(projectsList);
         } catch (e) {
             console.error("Errore caricamento connessioni:", e);
             toast.error(t("Error loading"));
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCreateGhost = async () => {
+        if (!ghostUsername || !ghostName) {
+            toast.warning(t("Please fix form errors"));
+            return;
+        }
+        try {
+            setCreatingGhost(true);
+            const created = await jinn.ghostsCreate(ghostUsername, ghostName);
+            toast.success(t("Success"));
+            const createdName = ghostName;
+            setGhostName('');
+            setGhostUsername('');
+            loadData();
+
+            // Open project assignment modal if there are projects
+            if (projects.length > 0 && created?.id) {
+                setNewGhostId(created.id);
+                setNewGhostName(createdName);
+                setSelectedProjects(new Set());
+                setShowAssignModal(true);
+            }
+        } catch (e) {
+            toast.error(t("Error") + ": " + e.message);
+        } finally {
+            setCreatingGhost(false);
+        }
+    };
+
+    const handleAssignToProjects = async () => {
+        if (selectedProjects.size === 0 || !newGhostId) {
+            setShowAssignModal(false);
+            return;
+        }
+        try {
+            setAssigning(true);
+            for (const projectId of selectedProjects) {
+                await jinn.projectMembersAdd(projectId, newGhostId, "EDITOR");
+            }
+            toast.success(t("Success"));
+        } catch (e) {
+            toast.error(t("Error") + ": " + e.message);
+        } finally {
+            setAssigning(false);
+            setShowAssignModal(false);
+            setNewGhostId(null);
+            setNewGhostName('');
+            setSelectedProjects(new Set());
+        }
+    };
+
+    const toggleProject = (projectId) => {
+        setSelectedProjects(prev => {
+            const next = new Set(prev);
+            if (next.has(projectId)) next.delete(projectId);
+            else next.add(projectId);
+            return next;
+        });
     };
 
     const handleSearch = async () => {
@@ -105,13 +194,49 @@ export default function ConnectionsPage({ shell }) {
     };
 
     const removeFriend = async (friendId) => {
-        if (!confirm(t("Are you sure you want to delete"))) return;
+        const confirmed = await modal.confirm({ title: t("Are you sure you want to delete") });
+        if (!confirmed) return;
         try {
             await jinn.connectionsRemove(friendId);
             toast.success(t("Deleted successfully"));
             loadData();
         } catch (e) {
             toast.error(t("Deletion error"));
+        }
+    };
+
+    const openEditGhost = (ghost) => {
+        setEditGhost(ghost);
+        setEditName(ghost.displayName || '');
+        setEditUsername(ghost.username || '');
+        setShowEditModal(true);
+    };
+
+    const handleEditGhost = async () => {
+        if (!editGhost || !editName || !editUsername) return;
+        try {
+            setSaving(true);
+            await jinn.ghostsUpdate(editGhost.id, { username: editUsername, displayName: editName });
+            toast.success(t("Member updated"));
+            setShowEditModal(false);
+            setEditGhost(null);
+            loadData();
+        } catch (e) {
+            toast.error(t("Error") + ": " + e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const deleteGhost = async (ghostId) => {
+        const confirmed = await modal.confirm({ title: t("Are you sure you want to delete") });
+        if (!confirmed) return;
+        try {
+            await jinn.ghostsDelete(ghostId);
+            toast.success(t("Deleted successfully"));
+            loadData();
+        } catch (e) {
+            toast.error(t("Deletion error") + ": " + e.message);
         }
     };
 
@@ -175,6 +300,77 @@ export default function ConnectionsPage({ shell }) {
                             </ul>
                         )}
                     </div>
+
+                    {/* Virtual Members (Ghost Users) */}
+                    <div className="card shadow-sm mt-4">
+                        <div className="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                            <span>{t("Virtual Members")} ({ghosts.length})</span>
+                        </div>
+                        {ghosts.length === 0 ? (
+                            <div className="p-4 text-center text-muted">
+                                {t("No virtual members yet.")}
+                            </div>
+                        ) : (
+                            <ul className="list-group list-group-flush">
+                                {ghosts.map(ghost => (
+                                    <li key={ghost.id} className="list-group-item d-flex justify-content-between align-items-center">
+                                        <div className="d-flex align-items-center gap-3">
+                                            <div className="avatar-circle bg-secondary-subtle text-secondary d-flex align-items-center justify-content-center" style={{width: 40, height: 40, borderRadius: '50%'}}>
+                                                {(ghost.displayName || ghost.username).substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="fw-bold">{ghost.displayName || ghost.username}</div>
+                                                <small className="text-muted">@{ghost.username}</small>
+                                            </div>
+                                            <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{t("Virtual")}</span>
+                                        </div>
+                                        <div className="btn-group">
+                                            <button className="btn btn-sm btn-outline-primary" onClick={() => openEditGhost(ghost)} title={t("Edit")}>
+                                                <i className="bi bi-pencil"></i>
+                                            </button>
+                                            <button className="btn btn-sm btn-outline-danger" onClick={() => deleteGhost(ghost.id)} title={t("Remove")}>
+                                                <i className="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        {/* Inline create ghost form */}
+                        <div className="card-footer bg-white">
+                            <div className="row g-2 align-items-end">
+                                <div className="col">
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-sm"
+                                        placeholder={t("Display Name")}
+                                        value={ghostName}
+                                        onChange={(e) => setGhostName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="col">
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-sm"
+                                        placeholder={t("Username")}
+                                        value={ghostUsername}
+                                        onChange={(e) => setGhostUsername(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleCreateGhost()}
+                                    />
+                                </div>
+                                <div className="col-auto">
+                                    <button
+                                        className="btn btn-sm btn-outline-secondary"
+                                        onClick={handleCreateGhost}
+                                        disabled={creatingGhost}
+                                    >
+                                        <i className="bi bi-plus-lg me-1"></i>
+                                        {t("Create")}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Colonna Destra: Cerca e Aggiungi */}
@@ -230,6 +426,87 @@ export default function ConnectionsPage({ shell }) {
                     </div>
                 </div>
             </div>
+
+            {/* Modal: Edit ghost */}
+            {showEditModal && editGhost && (
+                <PortalModal onClick={() => setShowEditModal(false)}>
+                    <div className="modal-header">
+                        <h5 className="modal-title">{t("Edit Member")}</h5>
+                        <button type="button" className="btn-close" onClick={() => setShowEditModal(false)} />
+                    </div>
+                    <div className="modal-body">
+                        <div className="mb-3">
+                            <label className="form-label fw-bold">{t("Display Name")}</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                            />
+                        </div>
+                        <div className="mb-3">
+                            <label className="form-label fw-bold">{t("Username")}</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={editUsername}
+                                onChange={(e) => setEditUsername(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleEditGhost()}
+                            />
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>{t("Cancel")}</button>
+                        <button className="btn btn-primary" onClick={handleEditGhost} disabled={saving || !editName || !editUsername}>
+                            {saving ? t("Loading...") : t("Save Changes")}
+                        </button>
+                    </div>
+                </PortalModal>
+            )}
+
+            {/* Modal: Assign ghost to projects */}
+            {showAssignModal && (
+                <PortalModal onClick={() => setShowAssignModal(false)}>
+                    <div className="modal-header">
+                        <h5 className="modal-title">{t("Assign to Projects")}</h5>
+                        <button type="button" className="btn-close" onClick={() => setShowAssignModal(false)} />
+                    </div>
+                    <div className="modal-body">
+                        <p className="text-muted small mb-3">
+                            {t("Select projects for this member")}: <strong>{newGhostName}</strong>
+                        </p>
+                        {projects.length === 0 ? (
+                            <p className="text-muted">{t("No active projects")}</p>
+                        ) : (
+                            <div className="list-group">
+                                {projects.map(p => (
+                                    <label key={p.id} className="list-group-item d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            className="form-check-input m-0"
+                                            checked={selectedProjects.has(p.id)}
+                                            onChange={() => toggleProject(p.id)}
+                                        />
+                                        <span>{p.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-outline-secondary" onClick={() => setShowAssignModal(false)}>
+                            {t("Skip")}
+                        </button>
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleAssignToProjects}
+                            disabled={assigning || selectedProjects.size === 0}
+                        >
+                            {assigning ? t("Loading...") : t("Assign")}
+                        </button>
+                    </div>
+                </PortalModal>
+            )}
         </div>
     );
 }

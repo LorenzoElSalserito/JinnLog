@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, setMonth, setYear } from "date-fns";
+import { format, parse, startOfWeek, getDay, setMonth, setYear, addDays } from "date-fns";
 import { it, enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
-import PortalModal from "../components/PortalModal.jsx";
+import TaskEditorModal from "../components/TaskEditorModal.jsx";
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -42,69 +42,6 @@ const localizer = dateFnsLocalizer({
 });
 
 // ========================================
-// Create Event Modal - CORRETTO: senza doppio wrapping
-// ========================================
-
-function CreateEventModal({ date, onClose, onCreate }) {
-    const { t, i18n } = useTranslation();
-    const [title, setTitle] = useState("");
-    const [type, setType] = useState("TASK_BLOCK"); // MEETING, CALL, APPOINTMENT, TASK_BLOCK
-
-    const handleSubmit = () => {
-        if (!title.trim()) return;
-        onCreate({ title, type, date });
-    };
-
-    return (
-        <PortalModal onClick={onClose}>
-            <div className="modal-header">
-                <h5 className="modal-title">{t("New Event")}</h5>
-                <button type="button" className="btn-close" onClick={onClose}></button>
-            </div>
-            <div className="modal-body">
-                <div className="mb-3">
-                    <label className="form-label">{t("Date")}</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        value={format(date, "dd MMMM yyyy", { locale: locales[i18n.language] || locales.en })}
-                        disabled
-                    />
-                </div>
-                <div className="mb-3">
-                    <label className="form-label">{t("Title")}</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        autoFocus
-                        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label className="form-label">{t("Type")}</label>
-                    <select
-                        className="form-select"
-                        value={type}
-                        onChange={(e) => setType(e.target.value)}
-                    >
-                        <option value="TASK_BLOCK">Task Block</option>
-                        <option value="MEETING">Meeting</option>
-                        <option value="CALL">Call</option>
-                        <option value="APPOINTMENT">{t("Appointment")}</option>
-                    </select>
-                </div>
-            </div>
-            <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={onClose}>{t("Cancel")}</button>
-                <button className="btn btn-primary" onClick={handleSubmit} disabled={!title.trim()}>{t("Create")}</button>
-            </div>
-        </PortalModal>
-    );
-}
-
-// ========================================
 // CalendarPage Component
 // ========================================
 
@@ -115,8 +52,8 @@ export default function CalendarPage({ shell }) {
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [currentView, setCurrentView] = useState("month");
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [selectedDateForCreate, setSelectedDateForCreate] = useState(null);
+    const [showTaskModal, setShowTaskModal] = useState(false);
+    const [taskDefaults, setTaskDefaults] = useState(null);
 
     // Messaggi localizzati per il calendario
     const messages = useMemo(() => ({
@@ -218,6 +155,10 @@ export default function CalendarPage({ shell }) {
                 </button>
             </div>
         );
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
     }, [shell, currentDate, handleMonthChange, handleYearChange, years, t, MONTHS]);
 
     // Aggiorna right panel quando cambia selezione
@@ -256,10 +197,12 @@ export default function CalendarPage({ shell }) {
                 <div className="p-2 border rounded-3 bg-white">
                     <div className="small fw-bold mb-2">{t("Statistics")}</div>
                     <div className="small text-muted">
+                        <div>{t("Events on calendar")}: {tasks.filter(t => !t.archived && (t.plannedStart || t.deadline)).length}</div>
                         <div>{t("Tasks with deadline")}: {tasks.filter(t => t.deadline).length}</div>
                         <div>{t("This month")}: {tasks.filter(t => {
-                            if (!t.deadline) return false;
-                            const d = new Date(t.deadline);
+                            if (t.archived) return false;
+                            const d = t.plannedStart ? new Date(t.plannedStart) : t.deadline ? new Date(t.deadline) : null;
+                            if (!d) return false;
                             return d.getMonth() === currentDate.getMonth() &&
                                 d.getFullYear() === currentDate.getFullYear();
                         }).length}</div>
@@ -297,15 +240,35 @@ export default function CalendarPage({ shell }) {
         loadTasks();
     }, [loadTasks]);
 
-    // Converti task in eventi calendario
+    // Converti task in eventi calendario.
+    // Tasks with plannedStart/plannedFinish span across all their days.
+    // Tasks with only a deadline appear as single-day events.
     const events = useMemo(() => {
-        return tasks
-            .filter((task) => task.deadline && !task.archived)
-            .map((task) => {
-                const deadline = new Date(task.deadline);
-                const isOverdue = deadline < new Date() && task.status !== "DONE";
+        const now = new Date();
+        const result = [];
 
-                return {
+        tasks.filter(task => !task.archived).forEach(task => {
+            const hasPlannedDates = task.plannedStart && task.plannedFinish;
+            const hasDeadline = !!task.deadline;
+            const deadline = hasDeadline ? new Date(task.deadline) : null;
+            const isOverdue = deadline && deadline < now && task.status !== 'DONE';
+
+            if (hasPlannedDates) {
+                const start = new Date(task.plannedStart);
+                const end = new Date(task.plannedFinish);
+                // react-big-calendar treats end as exclusive for allDay events,
+                // so add 1 day to make the last day visible.
+                result.push({
+                    id: task.id,
+                    title: task.title,
+                    start,
+                    end: addDays(end, 1),
+                    allDay: true,
+                    resource: task,
+                    isOverdue,
+                });
+            } else if (hasDeadline) {
+                result.push({
                     id: task.id,
                     title: task.title,
                     start: deadline,
@@ -313,8 +276,11 @@ export default function CalendarPage({ shell }) {
                     allDay: true,
                     resource: task,
                     isOverdue,
-                };
-            });
+                });
+            }
+        });
+
+        return result;
     }, [tasks]);
 
     // Stile eventi
@@ -345,31 +311,33 @@ export default function CalendarPage({ shell }) {
         setSelectedEvent(event);
     }, []);
 
-    // Click su slot vuoto
+    // Click su slot vuoto → apri TaskEditorModal con date precompilate
     const handleSelectSlot = useCallback((slotInfo) => {
-        setSelectedDateForCreate(slotInfo.start);
-        setShowCreateModal(true);
+        const clickedDate = slotInfo.start;
+        setTaskDefaults({
+            plannedStart: clickedDate,
+            plannedFinish: addDays(clickedDate, 1),
+            deadline: addDays(clickedDate, 1),
+        });
+        setShowTaskModal(true);
     }, []);
 
-    // Crea evento (Task)
-    const handleCreateEvent = async ({ title, type, date }) => {
+    // Salva task da TaskEditorModal
+    const handleSaveTask = async (taskData, files) => {
         if (!shell?.currentProject) return;
 
         try {
-            const formattedDate = format(date, "yyyy-MM-dd");
-            const newTask = await jinn.tasksCreate(shell.currentProject.id, {
-                title: `[${type}] ${title}`,
-                status: "TODO",
-                priority: "MED",
-                deadline: formattedDate
-            });
-
-            setTasks(prev => [...prev, newTask]);
-            setShowCreateModal(false);
-            toast.success(t("Event created"));
+            if (taskData.id) {
+                await jinn.tasksUpdate(shell.currentProject.id, taskData.id, taskData, files);
+            } else {
+                await jinn.tasksCreate(shell.currentProject.id, taskData, files);
+            }
+            setShowTaskModal(false);
+            setTaskDefaults(null);
+            loadTasks();
         } catch (e) {
-            console.error("[CalendarPage] Errore creazione:", e);
-            toast.error(t("Error creating event") + ": " + e.message);
+            console.error("[CalendarPage] Errore salvataggio task:", e);
+            toast.error(t("Error saving task") + ": " + e.message);
         }
     };
 
@@ -424,11 +392,13 @@ export default function CalendarPage({ shell }) {
                 />
             </div>
 
-            {showCreateModal && (
-                <CreateEventModal
-                    date={selectedDateForCreate}
-                    onClose={() => setShowCreateModal(false)}
-                    onCreate={handleCreateEvent}
+            {shell?.currentProject && (
+                <TaskEditorModal
+                    show={showTaskModal}
+                    onHide={() => { setShowTaskModal(false); setTaskDefaults(null); }}
+                    projectId={shell.currentProject.id}
+                    onSave={handleSaveTask}
+                    defaults={taskDefaults}
                 />
             )}
 

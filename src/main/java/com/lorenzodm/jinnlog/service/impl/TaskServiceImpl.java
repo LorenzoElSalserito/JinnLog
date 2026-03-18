@@ -2,7 +2,7 @@ package com.lorenzodm.jinnlog.service.impl;
 
 import com.lorenzodm.jinnlog.api.dto.request.CreateTaskRequest;
 import com.lorenzodm.jinnlog.api.dto.request.UpdateTaskRequest;
-import com.lorenzodm.jinnlog.api.dto.request.UpdateTaskStatusRequest;
+import com.lorenzodm.jinnlog.api.dto.request.ChangeTaskStatusRequest;
 import com.lorenzodm.jinnlog.api.exception.ConflictException;
 import com.lorenzodm.jinnlog.api.exception.OwnershipViolationException;
 import com.lorenzodm.jinnlog.api.exception.ResourceNotFoundException;
@@ -11,19 +11,27 @@ import com.lorenzodm.jinnlog.core.entity.Project;
 import com.lorenzodm.jinnlog.core.entity.ProjectMember;
 import com.lorenzodm.jinnlog.core.entity.Tag;
 import com.lorenzodm.jinnlog.core.entity.Task;
+import com.lorenzodm.jinnlog.core.entity.TaskPriority;
+import com.lorenzodm.jinnlog.core.entity.TaskStatus;
 import com.lorenzodm.jinnlog.core.entity.User;
 import com.lorenzodm.jinnlog.repository.ProjectMemberRepository;
 import com.lorenzodm.jinnlog.repository.ProjectRepository;
 import com.lorenzodm.jinnlog.repository.TagRepository;
+import com.lorenzodm.jinnlog.repository.TaskPriorityRepository;
 import com.lorenzodm.jinnlog.repository.TaskRepository;
+import com.lorenzodm.jinnlog.repository.TaskStatusRepository;
 import com.lorenzodm.jinnlog.repository.UserRepository;
 import com.lorenzodm.jinnlog.service.NotificationService;
+import com.lorenzodm.jinnlog.service.PlanningEngine;
 import com.lorenzodm.jinnlog.service.TaskService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +49,7 @@ import java.util.stream.Collectors;
  * - Dependencies (Blockers)
  * - Context Aware Visibility (Owner vs Member)
  * - Notifiche Assegnazione (v0.5.3)
+ * - Planning Engine Integration (PRD-08)
  */
 @Service
 @Transactional
@@ -54,6 +63,9 @@ public class TaskServiceImpl implements TaskService {
     private final TagRepository tagRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final NotificationService notificationService;
+    private final TaskStatusRepository taskStatusRepository;
+    private final TaskPriorityRepository taskPriorityRepository;
+    private final PlanningEngine planningEngine;
 
     public TaskServiceImpl(
             TaskRepository taskRepository,
@@ -61,7 +73,10 @@ public class TaskServiceImpl implements TaskService {
             UserRepository userRepository,
             TagRepository tagRepository,
             ProjectMemberRepository projectMemberRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            TaskStatusRepository taskStatusRepository,
+            TaskPriorityRepository taskPriorityRepository,
+            PlanningEngine planningEngine
     ) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
@@ -69,6 +84,9 @@ public class TaskServiceImpl implements TaskService {
         this.tagRepository = tagRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.notificationService = notificationService;
+        this.taskStatusRepository = taskStatusRepository;
+        this.taskPriorityRepository = taskPriorityRepository;
+        this.planningEngine = planningEngine;
     }
 
     @Override
@@ -83,18 +101,30 @@ public class TaskServiceImpl implements TaskService {
         t.setTitle(req.title());
         t.setDescription(req.description());
 
-        if (req.status() != null && !req.status().isBlank()) {
-            t.setStatus(req.status());
+        // Status entity lookup
+        if (req.statusId() != null && !req.statusId().isBlank()) {
+            TaskStatus status = taskStatusRepository.findById(req.statusId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Stato non trovato: " + req.statusId()));
+            t.setStatus(status);
+        } else {
+            // Default to TODO
+            taskStatusRepository.findByNameIgnoreCase("TODO").ifPresent(t::setStatus);
         }
 
-        if (req.priority() != null && !req.priority().isBlank()) {
-            t.setPriority(req.priority());
+        // Priority entity lookup
+        if (req.priorityId() != null && !req.priorityId().isBlank()) {
+            TaskPriority priority = taskPriorityRepository.findById(req.priorityId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Priorità non trovata: " + req.priorityId()));
+            t.setPriority(priority);
+        } else {
+            // Default to MEDIUM
+            taskPriorityRepository.findByNameIgnoreCase("MEDIUM").ifPresent(t::setPriority);
         }
 
         t.setDeadline(req.deadline());
         t.setOwner(req.owner());
-        t.setNotes(req.notes()); // Legacy
-        t.setMarkdownNotes(req.markdownNotes()); // v0.2.0
+        t.setNotes(req.notes());
+        t.setMarkdownNotes(req.markdownNotes());
 
         if (req.sortOrder() != null) {
             t.setSortOrder(req.sortOrder());
@@ -102,17 +132,17 @@ public class TaskServiceImpl implements TaskService {
 
         t.setArchived(false);
 
-        // Reminder (v0.2.0)
+        // Reminder
         t.setReminderDate(req.reminderDate());
         t.setReminderEnabled(req.reminderEnabled() != null && req.reminderEnabled());
 
-        // Time Tracking (v0.4.0)
-        t.setEstimatedMinutes(req.estimatedMinutes());
-        if (req.actualMinutes() != null) {
-            t.setActualMinutes(req.actualMinutes());
+        // Time Tracking
+        t.setEstimatedEffort(req.estimatedEffort());
+        if (req.actualEffort() != null) {
+            t.setActualEffort(req.actualEffort());
         }
 
-        // Calendar & Resource View (v0.5.0)
+        // Task type & planning
         if (req.type() != null) {
             try {
                 t.setType(Task.Type.valueOf(req.type()));
@@ -120,8 +150,20 @@ public class TaskServiceImpl implements TaskService {
                 t.setType(Task.Type.TASK);
             }
         }
-        t.setScheduledStart(req.scheduledStart());
-        t.setScheduledEnd(req.scheduledEnd());
+        t.setPlannedStart(req.plannedStart());
+        t.setPlannedFinish(req.plannedFinish());
+
+        // Auto-calculate effort from dates if not provided
+        if (t.getEstimatedEffort() == null && t.getPlannedStart() != null && t.getPlannedFinish() != null) {
+            t.setEstimatedEffort(calculateEffortFromDates(t.getPlannedStart(), t.getPlannedFinish()));
+        }
+
+        // Parent task (SUMMARY_TASK hierarchy)
+        if (req.parentTaskId() != null && !req.parentTaskId().isBlank()) {
+            Task parent = taskRepository.findByIdAndProjectId(req.parentTaskId(), projectId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent task non trovato: " + req.parentTaskId()));
+            t.setParentTask(parent);
+        }
 
         // Asset legacy
         t.setAssetPath(req.assetPath());
@@ -137,31 +179,14 @@ public class TaskServiceImpl implements TaskService {
             User assigned = userRepository.findById(req.assignedToId())
                     .orElseThrow(() -> new ResourceNotFoundException("Assigned user non trovato: " + req.assignedToId()));
             t.setAssignedTo(assigned);
-            
-            // Notifica se assegnato ad altri
-            if (!assigned.getId().equals(userId)) {
-                notificationService.create(
-                        assigned,
-                        creator,
-                        Notification.NotificationType.TASK_ASSIGNED,
-                        "Ti è stato assegnato un nuovo task: " + t.getTitle(),
-                        "TASK",
-                        null // ID non ancora disponibile, lo aggiorniamo dopo save? No, meglio salvare prima.
-                );
-            }
         }
 
-        // salva per avere ID
+        // Save to generate ID
         t = taskRepository.save(t);
-        
-        // Aggiorna refId notifica se necessario (ma notificationService.create salva subito, quindi refId sarebbe null).
-        // Correzione: salviamo prima il task, poi inviamo la notifica.
+
+        // Send notification after save (so we have the task ID)
         if (t.getAssignedTo() != null && !t.getAssignedTo().getId().equals(userId)) {
-             // Rinviamo la notifica con l'ID corretto (la precedente aveva refId null, poco male o la rifacciamo meglio)
-             // Per pulizia, spostiamo la logica di notifica DOPO il save.
-             // Ma attenzione: notificationService.create crea una nuova entità.
-             // Quindi rimuovo la chiamata sopra e la metto qui sotto.
-             notificationService.create(
+            notificationService.create(
                     t.getAssignedTo(),
                     creator,
                     Notification.NotificationType.TASK_ASSIGNED,
@@ -176,6 +201,11 @@ public class TaskServiceImpl implements TaskService {
             Set<Tag> tags = loadTagsForUser(userId, req.tagIds());
             tags.forEach(t::addTag);
             t = taskRepository.save(t);
+        }
+
+        // Trigger Planning Engine if dates or parent set
+        if (t.getPlannedStart() != null || t.getParentTask() != null) {
+            planningEngine.recalculatePlan(projectId);
         }
 
         return t;
@@ -211,9 +241,9 @@ public class TaskServiceImpl implements TaskService {
             if (search != null && !search.isBlank()) {
                 tasks = taskRepository.searchByTitleOrDescription(project.getId(), search);
             } else if (status != null && !status.isBlank()) {
-                tasks = taskRepository.findByProjectIdAndStatus(project.getId(), status);
+                tasks = taskRepository.findByProjectIdAndStatusName(project.getId(), status);
             } else if (priority != null && !priority.isBlank()) {
-                tasks = taskRepository.findByProjectIdAndPriority(project.getId(), priority);
+                tasks = taskRepository.findByProjectIdAndPriorityName(project.getId(), priority);
             } else {
                 tasks = taskRepository.findByProjectId(project.getId());
             }
@@ -236,13 +266,25 @@ public class TaskServiceImpl implements TaskService {
 
         if (req.title() != null) t.setTitle(req.title());
         if (req.description() != null) t.setDescription(req.description());
-        if (req.status() != null) {
-            if (("DONE".equals(req.status()) || "COMPLETED".equals(req.status())) && t.isBlocked()) {
+
+        // Status entity lookup
+        if (req.statusId() != null) {
+            TaskStatus newStatus = taskStatusRepository.findById(req.statusId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Stato non trovato: " + req.statusId()));
+            String statusName = newStatus.getName().toUpperCase();
+            if (("DONE".equals(statusName) || "COMPLETED".equals(statusName)) && t.isBlocked()) {
                 throw new ConflictException("Impossibile completare il task: ci sono dipendenze non risolte.");
             }
-            t.setStatus(req.status());
+            t.setStatus(newStatus);
         }
-        if (req.priority() != null) t.setPriority(req.priority());
+
+        // Priority entity lookup
+        if (req.priorityId() != null) {
+            TaskPriority newPriority = taskPriorityRepository.findById(req.priorityId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Priorità non trovata: " + req.priorityId()));
+            t.setPriority(newPriority);
+        }
+
         if (req.deadline() != null) t.setDeadline(req.deadline());
         if (req.owner() != null) t.setOwner(req.owner());
         if (req.notes() != null) t.setNotes(req.notes());
@@ -255,8 +297,8 @@ public class TaskServiceImpl implements TaskService {
         if (req.reminderDate() != null) t.setReminderDate(req.reminderDate());
         if (req.reminderEnabled() != null) t.setReminderEnabled(req.reminderEnabled());
 
-        if (req.estimatedMinutes() != null) t.setEstimatedMinutes(req.estimatedMinutes());
-        if (req.actualMinutes() != null) t.setActualMinutes(req.actualMinutes());
+        if (req.estimatedEffort() != null) t.setEstimatedEffort(req.estimatedEffort());
+        if (req.actualEffort() != null) t.setActualEffort(req.actualEffort());
 
         if (req.type() != null) {
             try {
@@ -265,8 +307,26 @@ public class TaskServiceImpl implements TaskService {
                 // ignore invalid type
             }
         }
-        if (req.scheduledStart() != null) t.setScheduledStart(req.scheduledStart());
-        if (req.scheduledEnd() != null) t.setScheduledEnd(req.scheduledEnd());
+        if (req.plannedStart() != null) t.setPlannedStart(req.plannedStart());
+        if (req.plannedFinish() != null) t.setPlannedFinish(req.plannedFinish());
+
+        // Auto-recalculate effort when dates change and no explicit effort was provided
+        if (req.estimatedEffort() == null
+                && (req.plannedStart() != null || req.plannedFinish() != null)
+                && t.getPlannedStart() != null && t.getPlannedFinish() != null) {
+            t.setEstimatedEffort(calculateEffortFromDates(t.getPlannedStart(), t.getPlannedFinish()));
+        }
+
+        // Parent task hierarchy (Phase 2)
+        if (req.parentTaskId() != null) {
+            if (req.parentTaskId().isBlank()) {
+                t.setParentTask(null);
+            } else {
+                Task parent = taskRepository.findByIdAndProjectId(req.parentTaskId(), projectId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Parent task non trovato"));
+                t.setParentTask(parent);
+            }
+        }
 
         if (req.assetPath() != null) t.setAssetPath(req.assetPath());
         if (req.assetFileName() != null) t.setAssetFileName(req.assetFileName());
@@ -310,20 +370,33 @@ public class TaskServiceImpl implements TaskService {
             }
         }
 
-        return taskRepository.save(t);
+        Task saved = taskRepository.save(t);
+
+        // Trigger Planning Engine on significant changes
+        boolean planningRelevant = req.plannedStart() != null || req.plannedFinish() != null || 
+                                   req.estimatedEffort() != null || req.parentTaskId() != null;
+        if (planningRelevant) {
+            planningEngine.recalculatePlan(projectId);
+        }
+
+        return saved;
     }
 
     @Override
-    public Task updateStatus(String userId, String projectId, String taskId, UpdateTaskStatusRequest req) {
-        log.debug("Updating task {} status to {} for user {}", taskId, req.status(), userId);
+    public Task updateStatus(String userId, String projectId, String taskId, ChangeTaskStatusRequest req) {
+        log.debug("Updating task {} status to {} for user {}", taskId, req.statusId(), userId);
 
         Task t = getOwned(userId, projectId, taskId);
-        
-        if (("DONE".equals(req.status()) || "COMPLETED".equals(req.status())) && t.isBlocked()) {
+
+        TaskStatus newStatus = taskStatusRepository.findById(req.statusId())
+                .orElseThrow(() -> new ResourceNotFoundException("Stato non trovato: " + req.statusId()));
+
+        String statusName = newStatus.getName().toUpperCase();
+        if (("DONE".equals(statusName) || "COMPLETED".equals(statusName)) && t.isBlocked()) {
             throw new ConflictException("Impossibile completare il task: ci sono dipendenze non risolte.");
         }
-        
-        t.setStatus(req.status());
+
+        t.setStatus(newStatus);
         return taskRepository.save(t);
     }
 
@@ -342,6 +415,8 @@ public class TaskServiceImpl implements TaskService {
 
         Task t = getOwned(userId, projectId, taskId);
         taskRepository.delete(t);
+        // Recalculate plan after deletion
+        planningEngine.recalculatePlan(projectId);
     }
 
     @Override
@@ -372,6 +447,9 @@ public class TaskServiceImpl implements TaskService {
 
         t.addBlocker(blocker);
         taskRepository.save(t);
+        
+        // Recalculate plan after dependency change
+        planningEngine.recalculatePlan(projectId);
     }
 
     public void removeBlocker(String userId, String projectId, String taskId, String blockerTaskId) {
@@ -380,6 +458,9 @@ public class TaskServiceImpl implements TaskService {
 
         t.removeBlocker(blocker);
         taskRepository.save(t);
+        
+        // Recalculate plan after dependency change
+        planningEngine.recalculatePlan(projectId);
     }
 
     private Project getProjectAccess(String userId, String projectId) {
@@ -393,6 +474,24 @@ public class TaskServiceImpl implements TaskService {
         if (!projectMemberRepository.existsByProjectIdAndUserId(projectId, assigneeId)) {
             throw new ConflictException("L'utente assegnato non è membro del progetto.");
         }
+    }
+
+    /**
+     * Calculates estimated effort in minutes from planned dates.
+     * Uses business days (Mon-Fri) × 480 min (8h/day).
+     */
+    private int calculateEffortFromDates(LocalDateTime start, LocalDateTime finish) {
+        int days = 0;
+        var cur = start.toLocalDate();
+        var end = finish.toLocalDate();
+        while (cur.isBefore(end)) {
+            DayOfWeek dow = cur.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                days++;
+            }
+            cur = cur.plusDays(1);
+        }
+        return Math.max(1, days) * 480;
     }
 
     private Set<Tag> loadTagsForUser(String userId, List<String> tagIds) {

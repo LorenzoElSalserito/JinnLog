@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import { useTranslation } from 'react-i18next';
+import { useModal } from "../hooks/useModal.js";
 
 /**
  * SettingsPage - Pagina impostazioni utente
@@ -22,6 +23,7 @@ import { useTranslation } from 'react-i18next';
  */
 export default function SettingsPage({ shell }) {
     const { t, i18n } = useTranslation();
+    const modal = useModal();
 
     // ========================================
     // State
@@ -50,9 +52,13 @@ export default function SettingsPage({ shell }) {
         shell?.setTitle?.(t("Settings"));
         shell?.setHeaderActions?.(null);
         shell?.setRightPanel?.(null);
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
     }, [shell, t]);
 
-    // Carica impostazioni
+    // Carica impostazioni (solo al mount)
     useEffect(() => {
         async function loadSettings() {
             try {
@@ -64,7 +70,7 @@ export default function SettingsPage({ shell }) {
                         ...data,
                         backupIntervalDays: data.backupIntervalDays || 7,
                     }));
-                    
+
                     // Imposta la lingua in i18next
                     if (data.language) {
                         i18n.changeLanguage(data.language);
@@ -79,13 +85,13 @@ export default function SettingsPage({ shell }) {
                 }
             } catch (e) {
                 console.error("[SettingsPage] Errore caricamento:", e);
-                toast.error(t("Error loading settings"));
             } finally {
                 setLoading(false);
             }
         }
         loadSettings();
-    }, [i18n, t]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // ========================================
     // Handlers
@@ -139,7 +145,8 @@ export default function SettingsPage({ shell }) {
     };
 
     const handleReset = async () => {
-        if (!confirm(t("Are you sure you want to restore default settings?"))) {
+        const confirmed = await modal.confirm({ title: t("Are you sure you want to restore default settings?") });
+        if (!confirmed) {
             return;
         }
 
@@ -193,7 +200,8 @@ export default function SettingsPage({ shell }) {
     };
 
     const handleImportDb = async () => {
-        if (!confirm(t("WARNING: Importing will overwrite ALL current data. Do you want to continue?"))) {
+        const confirmed = await modal.confirm({ title: t("WARNING: Importing will overwrite ALL current data. Do you want to continue?") });
+        if (!confirmed) {
             return;
         }
 
@@ -231,7 +239,8 @@ export default function SettingsPage({ shell }) {
     };
 
     const handleRotateCalendarToken = async () => {
-        if (!confirm(t("Regenerating the token will require updating the link on all your external calendars. Continue?"))) return;
+        const confirmed = await modal.confirm({ title: t("Regenerating the token will require updating the link on all your external calendars. Continue?") });
+        if (!confirmed) return;
         
         try {
             const userId = jinn.getCurrentUser();
@@ -259,7 +268,7 @@ export default function SettingsPage({ shell }) {
     const handleBugReport = () => {
         const recipient = "commercial.lorenzodm@gmail.com";
         const subject = "[RILEVATO BUG JINNLOG]";
-        const body = `Descrivi il bug qui:\n\nVersione JinnLog: v0.5.2\nSistema Operativo: ${navigator.platform}\nBrowser/Electron: ${navigator.userAgent}`;
+        const body = `Descrivi il bug qui:\n\nSistema Operativo: ${navigator.platform}\nBrowser/Electron: ${navigator.userAgent}`;
         window.open(`mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
     };
 
@@ -463,7 +472,7 @@ export default function SettingsPage({ shell }) {
                 <div className="card-body">
                     <div className="row mb-1">
                         <div className="col-sm-4 text-muted">{t("Version")}</div>
-                        <div className="col-sm-8">JinnLog v0.5.2</div>
+                        <div className="col-sm-8">JinnLog v{__APP_VERSION__}</div>
                     </div>
                     <div className="row mb-1">
                         <div className="col-sm-4 text-muted">{t("Copyright")}</div>

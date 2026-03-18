@@ -2,51 +2,62 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { jinn } from "../api/jinn.js";
 import { toast } from "react-toastify";
 import { useTranslation } from 'react-i18next';
+import { useWorkflow } from "../context/WorkflowContext.jsx";
+import TaskEditorModal from "../components/TaskEditorModal.jsx";
+import { useModal } from "../hooks/useModal.js";
+// import { Dropdown } from 'react-bootstrap'; // REMOVED: react-bootstrap not installed
 
 /**
  * KanbanPage - Vista Kanban per gestione task
- * 
+ *
  * Features:
- * - Colonne per status (TODO, DOING, DONE)
+ * - Dynamic columns from backend TaskStatus entities
  * - Drag and drop tra colonne
  * - Quick actions sui task
  * - Filtri e ricerca
  * - Integrazione Focus Timer con spostamento automatico (PRD-04)
  * - Badge progresso checklist (PRD-09)
- * 
+ *
  * @author Lorenzo DM
  * @since 0.2.0
- * @updated 0.4.3 - Aggiunto badge checklist
+ * @updated 0.11.0 - Dynamic status columns from BE
  */
 
 // ========================================
-// Configurazione Colonne
+// Utility
 // ========================================
 
-const getColumns = (t) => [
-    { id: "TODO", label: t("To Do"), color: "#6c757d", icon: "bi-circle" },
-    { id: "DOING", label: t("In Progress"), color: "#0d6efd", icon: "bi-play-circle" },
-    { id: "DONE", label: t("Done"), color: "#198754", icon: "bi-check-circle" },
-];
+function isLightColor(hex) {
+    if (!hex) return false;
+    const c = hex.replace('#', '');
+    if (c.length < 6) return false;
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+}
+
+const STATUS_ICONS = {
+    "TODO": "bi-circle",
+    "IN_PROGRESS": "bi-play-circle",
+    "DONE": "bi-check-circle",
+    "REVIEW": "bi-eye",
+    "BLOCKED": "bi-x-circle",
+};
 
 // ========================================
 // KanbanCard Component
 // ========================================
 
-function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, runningTimer, t }) {
+function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, runningTimers, t }) {
     const [isDragging, setIsDragging] = useState(false);
 
-    const priorityColors = {
-        HIGH: { bg: "#dc3545", text: "white" },
-        MED: { bg: "#ffc107", text: "black" },
-        LOW: { bg: "#6c757d", text: "white" },
-    };
-
-    const priority = priorityColors[task.priority] || priorityColors.MED;
+    const priorityBg = task.priorityColor || "#6c757d";
+    const priorityText = isLightColor(priorityBg) ? "black" : "white";
 
     const handleDragStart = (e) => {
         e.dataTransfer.setData("taskId", task.id);
-        e.dataTransfer.setData("currentStatus", task.status);
+        e.dataTransfer.setData("currentStatusId", task.statusId);
         setIsDragging(true);
     };
 
@@ -54,9 +65,9 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
         setIsDragging(false);
     };
 
-    const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "DONE";
-    const isTimerRunningOnThis = runningTimer && runningTimer.taskId === task.id;
-    const checklistProgress = task.checklistItems?.length > 0 
+    const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.statusName !== "DONE";
+    const isTimerRunningOnThis = runningTimers.has(task.id);
+    const checklistProgress = task.checklistItems?.length > 0
         ? `${task.checklistItems.filter(i => i.done).length}/${task.checklistItems.length}`
         : null;
 
@@ -69,7 +80,7 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
             style={{
                 cursor: "grab",
                 opacity: isDragging ? 0.5 : 1,
-                borderLeft: `4px solid ${priority.bg}`,
+                borderLeft: `4px solid ${priorityBg}`,
                 borderRight: isTimerRunningOnThis ? `4px solid #198754` : 'none',
             }}
         >
@@ -96,10 +107,7 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
                             </li>
                             <li><hr className="dropdown-divider" /></li>
                             <li>
-                                <button 
-                                    className="dropdown-item text-danger" 
-                                    onClick={() => onDelete(task)}
-                                >
+                                <button className="dropdown-item text-danger" onClick={() => onDelete(task)}>
                                     <i className="bi bi-trash me-2"></i>{t("Delete")}
                                 </button>
                             </li>
@@ -109,7 +117,7 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
 
                 {/* Descrizione (troncata) */}
                 {task.description && (
-                    <p className="card-text text-muted small mb-2" style={{ 
+                    <p className="card-text text-muted small mb-2" style={{
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         display: "-webkit-box",
@@ -127,12 +135,12 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
                         <span
                             className="badge"
                             style={{
-                                backgroundColor: priority.bg,
-                                color: priority.text,
+                                backgroundColor: priorityBg,
+                                color: priorityText,
                                 fontSize: "0.7rem",
                             }}
                         >
-                            {task.priority}
+                            {task.priorityName || "N/A"}
                         </span>
                         {checklistProgress && (
                             <span className="badge bg-light text-dark border">
@@ -154,7 +162,7 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
                     )}
 
                     {/* Focus Timer Button */}
-                    <button 
+                    <button
                         className={`btn btn-sm p-1 ${isTimerRunningOnThis ? "btn-success" : "btn-outline-secondary"}`}
                         onClick={() => onTimerToggle(task)}
                         title={isTimerRunningOnThis ? t("Stop timer") : t("Start timer")}
@@ -171,7 +179,7 @@ function KanbanCard({ task, onStatusChange, onEdit, onDelete, onTimerToggle, run
 // KanbanColumn Component
 // ========================================
 
-function KanbanColumn({ column, tasks, onDrop, onEdit, onDelete, onStatusChange, onTimerToggle, runningTimer, t }) {
+function KanbanColumn({ column, tasks, onDrop, onEdit, onDelete, onStatusChange, onTimerToggle, runningTimers, t }) {
     const [isDragOver, setIsDragOver] = useState(false);
 
     const handleDragOver = (e) => {
@@ -188,9 +196,9 @@ function KanbanColumn({ column, tasks, onDrop, onEdit, onDelete, onStatusChange,
         setIsDragOver(false);
 
         const taskId = e.dataTransfer.getData("taskId");
-        const currentStatus = e.dataTransfer.getData("currentStatus");
+        const currentStatusId = e.dataTransfer.getData("currentStatusId");
 
-        if (currentStatus !== column.id) {
+        if (currentStatusId !== column.id) {
             onDrop(taskId, column.id);
         }
     };
@@ -204,7 +212,7 @@ function KanbanColumn({ column, tasks, onDrop, onEdit, onDelete, onStatusChange,
             style={{
                 minWidth: 280,
                 maxWidth: 400,
-                backgroundColor: "#f1f2f4", // Sfondo chiaro
+                backgroundColor: "#f1f2f4",
                 borderRadius: "8px",
                 transition: "background-color 0.2s",
             }}
@@ -249,7 +257,7 @@ function KanbanColumn({ column, tasks, onDrop, onEdit, onDelete, onStatusChange,
                             onEdit={onEdit}
                             onDelete={onDelete}
                             onTimerToggle={onTimerToggle}
-                            runningTimer={runningTimer}
+                            runningTimers={runningTimers}
                             t={t}
                         />
                     ))
@@ -265,19 +273,51 @@ function KanbanColumn({ column, tasks, onDrop, onEdit, onDelete, onStatusChange,
 
 export default function KanbanPage({ shell }) {
     const { t } = useTranslation();
+    const { statuses, getStatusByName } = useWorkflow();
+    const modal = useModal();
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterPriority, setFilterPriority] = useState("");
-    const [runningTimer, setRunningTimer] = useState(null);
-    const COLUMNS = useMemo(() => getColumns(t), [t]);
+    // Multi-timer: Map<taskId, session>
+    const [runningTimers, setRunningTimers] = useState(new Map());
+    const [showTaskModal, setShowTaskModal] = useState(false);
+    const [selectedTask, setSelectedTask] = useState(null);
+
+    // Build columns dynamically from BE statuses
+    const COLUMNS = useMemo(() =>
+        statuses.map(s => ({
+            id: s.id,
+            name: s.name,
+            label: t(s.name === "IN_PROGRESS" ? "In Progress" : s.name === "TODO" ? "To Do" : s.name === "DONE" ? "Done" : s.name),
+            color: s.color || "#6c757d",
+            icon: STATUS_ICONS[s.name] || "bi-circle",
+        })),
+    [statuses, t]);
 
     // Setup shell
     useEffect(() => {
         shell?.setTitle?.(t("Kanban"));
         shell?.setHeaderActions?.(
             <div className="d-flex gap-2 align-items-center">
-                {/* Search */}
+                <select
+                    className="form-select form-select-sm"
+                    value={shell?.currentProject?.id || "__SELECT__"}
+                    onChange={(e) => {
+                        if (e.target.value === "__SELECT__") {
+                            shell?.navigate?.("menu");
+                        } else {
+                            const project = shell?.projects?.find(p => p.id === e.target.value);
+                            shell?.setCurrentProject?.(project);
+                        }
+                    }}
+                    style={{ width: 200 }}
+                >
+                    <option value="__SELECT__">{t("Select project...")}</option>
+                    {shell?.projects?.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
                 <input
                     type="text"
                     className="form-control form-control-sm"
@@ -286,7 +326,14 @@ export default function KanbanPage({ shell }) {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{ width: 200 }}
                 />
-                {/* Refresh */}
+                <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => { setSelectedTask(null); setShowTaskModal(true); }}
+                    disabled={!shell?.currentProject}
+                >
+                    <i className="bi bi-plus-lg me-1"></i>
+                    {t("Task")}
+                </button>
                 <button
                     className="btn btn-sm btn-outline-secondary"
                     onClick={loadTasks}
@@ -296,6 +343,10 @@ export default function KanbanPage({ shell }) {
                 </button>
             </div>
         );
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
     }, [shell, searchTerm, filterPriority, t]);
 
     // Load Tasks & Timer
@@ -307,12 +358,15 @@ export default function KanbanPage({ shell }) {
         }
         try {
             setLoading(true);
-            const [tasksList, timer] = await Promise.all([
+            const [tasksList, timers] = await Promise.all([
                 jinn.tasksList(shell.currentProject.id),
-                jinn.focusRunning()
+                jinn.focusRunningAll().catch(() => [])
             ]);
             setTasks(tasksList || []);
-            setRunningTimer(timer);
+            // Build Map<taskId, session> from running timers
+            const timerMap = new Map();
+            (timers || []).forEach(s => { if (s.taskId) timerMap.set(s.taskId, s); });
+            setRunningTimers(timerMap);
         } catch (e) {
             console.error("[KanbanPage] Errore caricamento:", e);
             toast.error(t("Error loading") + ": " + e.message);
@@ -329,28 +383,28 @@ export default function KanbanPage({ shell }) {
     const filteredTasks = useMemo(() => {
         return tasks.filter((task) => {
             if (searchTerm && !task.title?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-            if (filterPriority && task.priority !== filterPriority) return false;
+            if (filterPriority && task.priorityName !== filterPriority) return false;
             if (task.archived) return false;
             return true;
         });
     }, [tasks, searchTerm, filterPriority]);
 
-    // Group Tasks by Status
+    // Group Tasks by Status (column.id is the status UUID, task.statusId matches)
     const tasksByColumn = useMemo(() => {
         const grouped = {};
         COLUMNS.forEach((col) => {
-            grouped[col.id] = filteredTasks.filter((t) => t.status === col.id);
+            grouped[col.id] = filteredTasks.filter((t) => t.statusId === col.id);
         });
         return grouped;
     }, [filteredTasks, COLUMNS]);
 
     // Handlers
-    const handleDrop = async (taskId, newStatus) => {
+    const handleDrop = async (taskId, newStatusId) => {
         if (!shell?.currentProject) return;
         try {
-            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
-            await jinn.tasksUpdateStatus(shell.currentProject.id, taskId, newStatus);
-            toast.success(`${t("Task moved to")} "${COLUMNS.find(c => c.id === newStatus)?.label}"`);
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, statusId: newStatusId } : t)));
+            await jinn.tasksUpdateStatus(shell.currentProject.id, taskId, newStatusId);
+            toast.success(`${t("Task moved to")} "${COLUMNS.find(c => c.id === newStatusId)?.label}"`);
         } catch (e) {
             toast.error(t("Update error") + ": " + e.message);
             loadTasks();
@@ -359,18 +413,30 @@ export default function KanbanPage({ shell }) {
 
     const handleTimerToggle = async (task) => {
         try {
-            if (runningTimer && runningTimer.taskId === task.id) {
-                await jinn.focusStop();
-                setRunningTimer(null);
+            if (runningTimers.has(task.id)) {
+                const session = runningTimers.get(task.id);
+                await jinn.focusStop(session.id);
+                setRunningTimers(prev => {
+                    const next = new Map(prev);
+                    next.delete(task.id);
+                    return next;
+                });
                 toast.info(t("Timer stopped"));
             } else {
                 const newTimer = await jinn.focusStart(task.id);
-                setRunningTimer(newTimer);
+                setRunningTimers(prev => {
+                    const next = new Map(prev);
+                    next.set(task.id, newTimer);
+                    return next;
+                });
                 toast.success(t("Timer started on") + ": " + task.title);
 
-                // Sposta automaticamente in "DOING" se non lo è già
-                if (task.status !== "DOING") {
-                    handleDrop(task.id, "DOING");
+                // Sposta automaticamente in "IN_PROGRESS" se non lo è già
+                if (task.statusName !== "IN_PROGRESS") {
+                    const inProgressStatus = getStatusByName("IN_PROGRESS");
+                    if (inProgressStatus) {
+                        handleDrop(task.id, inProgressStatus.id);
+                    }
                 }
             }
         } catch (e) {
@@ -378,9 +444,33 @@ export default function KanbanPage({ shell }) {
         }
     };
 
-    const handleEdit = (task) => toast.info(t("Task editor coming soon..."));
+    const handleEdit = (task) => { setSelectedTask(task); setShowTaskModal(true); };
+
+    const handleSaveTask = async (taskData, uploadedFiles) => {
+        if (!shell?.currentProject) return;
+        try {
+            let taskId = taskData.id;
+            if (taskId) {
+                await jinn.tasksUpdate(shell.currentProject.id, taskId, taskData);
+                toast.success(t("Task updated"));
+            } else {
+                const created = await jinn.tasksCreate(shell.currentProject.id, taskData);
+                taskId = created.id;
+                toast.success(t("Task created"));
+            }
+            if (uploadedFiles && uploadedFiles.length > 0) {
+                await jinn.assetsUploadMultiple(uploadedFiles, `Allegato Task: ${taskData.title}`, taskId);
+            }
+            setShowTaskModal(false);
+            loadTasks();
+        } catch (e) {
+            toast.error(t("Error") + ": " + e.message);
+        }
+    };
     const handleDelete = async (task) => {
-        if (!shell?.currentProject || !confirm(`${t("Delete")} "${task.title}"?`)) return;
+        if (!shell?.currentProject) return;
+        const confirmed = await modal.confirm({ title: `${t("Delete")} "${task.title}"?` });
+        if (!confirmed) return;
         try {
             await jinn.tasksDelete(shell.currentProject.id, task.id);
             setTasks((prev) => prev.filter((t) => t.id !== task.id));
@@ -405,7 +495,7 @@ export default function KanbanPage({ shell }) {
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         onTimerToggle={handleTimerToggle}
-                        runningTimer={runningTimer}
+                        runningTimers={runningTimers}
                         t={t}
                     />
                 ))}
@@ -416,6 +506,17 @@ export default function KanbanPage({ shell }) {
                 .kanban-card { transition: transform 0.15s, box-shadow 0.15s; }
                 .kanban-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
             `}</style>
+
+            {shell?.currentProject && (
+                <TaskEditorModal
+                    show={showTaskModal}
+                    onHide={() => setShowTaskModal(false)}
+                    task={selectedTask}
+                    projectId={shell.currentProject.id}
+                    onSave={handleSaveTask}
+                    onNavigateToNote={(note) => shell.navigate('notes', { noteId: note.id })}
+                />
+            )}
         </div>
     );
 }

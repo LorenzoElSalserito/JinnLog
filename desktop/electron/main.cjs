@@ -317,8 +317,8 @@ function createSplashWindow() {
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1400,
-        height: 900,
+        width: 1600,
+        height: 1000,
         minWidth: 800,
         minHeight: 600,
         title: "JinnLog",
@@ -463,10 +463,13 @@ ipcMain.on('jl:force-focus', (event, payload) => {
 ipcMain.on('jl:force-focus-sync', (event, payload) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     const reason = payload?.reason || 'sync';
-    if (win && !win.isFocused()) {
+    if (!win) { event.returnValue = true; return; }
+
+    if (!win.isFocused()) {
         throttledHardFocus(win, `ipc-sync:${reason}`, false);
     } else {
-        console.log(`[Main] jl:force-focus-sync SKIPPED (already focused) reason: ${reason}`);
+        // Window focused ma webContents potrebbe non avere key focus
+        try { win.webContents.focus(); } catch (e) { /* ignore */ }
     }
     event.returnValue = true;
 });
@@ -480,16 +483,23 @@ ipcMain.on('jl:ensure-webcontent-focus', (event, payload) => {
         return;
     }
 
-    console.log(`[Main] jl:ensure-webcontent-focus reason: ${reason}`);
+    // Solo log per window-refocus (proattivo), non per ogni chiamata
+    if (reason !== 'window-refocus') {
+        console.log(`[Main] jl:ensure-webcontent-focus reason: ${reason}`);
+    }
 
-    if (!win.isVisible()) win.show();
-    if (!win.isFocused()) win.focus();
-
-    try {
-        win.webContents.focus();
-        console.log('[Main] webContents.focus() called');
-    } catch (e) {
-        console.warn('[Main] webContents.focus() failed:', e);
+    if (win.isFocused()) {
+        // Window focused → webContents.focus() per recuperare key focus
+        try {
+            win.webContents.focus();
+        } catch (e) { /* ignore */ }
+    } else {
+        // Window non focused → focus window prima, poi webContents
+        if (!win.isVisible()) win.show();
+        try {
+            win.focus();
+            win.webContents.focus();
+        } catch (e) { /* ignore */ }
     }
 
     event.returnValue = true;

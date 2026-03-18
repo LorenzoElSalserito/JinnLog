@@ -3,9 +3,11 @@ import { jinn } from '../api/jinn';
 import { toast } from 'react-toastify';
 import PortalModal from '../components/PortalModal.jsx';
 import { useTranslation } from 'react-i18next';
+import { useModal } from '../hooks/useModal.js';
 
 const TeamPage = ({ shell }) => {
     const { t } = useTranslation();
+    const modal = useModal();
     const [projects, setProjects] = useState([]);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -19,12 +21,21 @@ const TeamPage = ({ shell }) => {
     const [localName, setLocalName] = useState('');
     const [localUsername, setLocalUsername] = useState('');
 
-    // Form per Utente Reale (JinnLogger)
+    // Form per Utente Reale (JinnLogger) o Ghost esistente
     const [friends, setFriends] = useState([]);
+    const [ghosts, setGhosts] = useState([]);
     const [selectedFriendId, setSelectedFriendId] = useState('');
 
     // Common
     const [targetProjectId, setTargetProjectId] = useState('');
+
+    // Edit ghost state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editGhost, setEditGhost] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editUsername, setEditUsername] = useState('');
+    const [editProjects, setEditProjects] = useState(new Set());
+    const [savingEdit, setSavingEdit] = useState(false);
 
     useEffect(() => {
         shell?.setTitle?.(t("Team Management"));
@@ -64,13 +75,15 @@ const TeamPage = ({ shell }) => {
             setLoading(true);
 
             // Usa i metodi di jinn.js invece di fetch dirette
-            const [projectsList, friendsList] = await Promise.all([
+            const [projectsList, friendsList, ghostsList] = await Promise.all([
                 jinn.projectsList({ archived: false }),
-                jinn.connectionsList()
+                jinn.connectionsList(),
+                jinn.ghostsList()
             ]);
 
             setProjects(projectsList);
             setFriends(friendsList);
+            setGhosts(ghostsList);
 
             // Carica membri per ogni progetto
             const allMembers = [];
@@ -133,8 +146,65 @@ const TeamPage = ({ shell }) => {
         }
     };
 
+    const openEditGhost = (ghost) => {
+        setEditGhost(ghost);
+        setEditName(ghost.displayName || '');
+        setEditUsername(ghost.username || '');
+        // Find which projects this ghost is currently a member of
+        const ghostProjects = new Set(
+            members.filter(m => m.user.id === ghost.id).map(m => m.projectId)
+        );
+        setEditProjects(ghostProjects);
+        setShowEditModal(true);
+    };
+
+    const handleEditGhost = async () => {
+        if (!editGhost || !editName || !editUsername) return;
+        try {
+            setSavingEdit(true);
+            // Update name/username
+            await jinn.ghostsUpdate(editGhost.id, { username: editUsername, displayName: editName });
+
+            // Sync project assignments
+            const currentProjects = new Set(
+                members.filter(m => m.user.id === editGhost.id).map(m => m.projectId)
+            );
+            // Add to new projects
+            for (const pid of editProjects) {
+                if (!currentProjects.has(pid)) {
+                    await jinn.projectMembersAdd(pid, editGhost.id, "EDITOR");
+                }
+            }
+            // Remove from deselected projects
+            for (const pid of currentProjects) {
+                if (!editProjects.has(pid)) {
+                    await jinn.projectMembersRemove(pid, editGhost.id);
+                }
+            }
+
+            toast.success(t("Member updated"));
+            setShowEditModal(false);
+            setEditGhost(null);
+            loadData();
+        } catch (e) {
+            toast.error(t("Error") + ": " + e.message);
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const toggleEditProject = (projectId) => {
+        setEditProjects(prev => {
+            const next = new Set(prev);
+            if (next.has(projectId)) next.delete(projectId);
+            else next.add(projectId);
+            return next;
+        });
+    };
+
     const handleRemoveMember = async (member) => {
-        if (!confirm(`${t("Remove")} ${member.user.displayName || member.user.username} ${t("from project")} ${member.projectName}?`)) return;
+        const confirmed = await modal.confirm({ title: `${t("Remove")} ${member.user.displayName || member.user.username} ${t("from project")} ${member.projectName}?` });
+        if (!confirmed) return;
 
         try {
             await jinn.projectMembersRemove(member.projectId, member.user.id);
@@ -227,15 +297,26 @@ const TeamPage = ({ shell }) => {
                                             </span>
                                     </td>
                                     <td className="text-end pe-4">
-                                        {m.role !== 'OWNER' && (
-                                            <button
-                                                className="btn btn-sm btn-outline-danger"
-                                                onClick={() => handleRemoveMember(m)}
-                                                title={t("Remove from project")}
-                                            >
-                                                <i className="bi bi-trash"></i>
-                                            </button>
-                                        )}
+                                        <div className="btn-group">
+                                            {m.user.ghost && (
+                                                <button
+                                                    className="btn btn-sm btn-outline-primary"
+                                                    onClick={() => openEditGhost(m.user)}
+                                                    title={t("Edit Member")}
+                                                >
+                                                    <i className="bi bi-pencil"></i>
+                                                </button>
+                                            )}
+                                            {m.role !== 'OWNER' && (
+                                                <button
+                                                    className="btn btn-sm btn-outline-danger"
+                                                    onClick={() => handleRemoveMember(m)}
+                                                    title={t("Remove from project")}
+                                                >
+                                                    <i className="bi bi-trash"></i>
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -244,6 +325,63 @@ const TeamPage = ({ shell }) => {
                     </table>
                 </div>
             </div>
+
+            {/* Edit Ghost Modal */}
+            {showEditModal && editGhost && (
+                <PortalModal onClick={() => setShowEditModal(false)}>
+                    <div className="modal-header">
+                        <h5 className="modal-title">{t("Edit Member")}</h5>
+                        <button type="button" className="btn-close" onClick={() => setShowEditModal(false)} />
+                    </div>
+                    <div className="modal-body">
+                        <div className="mb-3">
+                            <label className="form-label fw-bold">{t("Display Name *")}</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                            />
+                        </div>
+                        <div className="mb-3">
+                            <label className="form-label fw-bold">{t("Username Identifier *")}</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={editUsername}
+                                onChange={(e) => setEditUsername(e.target.value)}
+                            />
+                        </div>
+                        <hr />
+                        <div className="mb-3">
+                            <label className="form-label fw-bold">{t("Projects")}</label>
+                            {projects.length === 0 ? (
+                                <p className="text-muted small">{t("No active projects")}</p>
+                            ) : (
+                                <div className="list-group">
+                                    {projects.map(p => (
+                                        <label key={p.id} className="list-group-item d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input m-0"
+                                                checked={editProjects.has(p.id)}
+                                                onChange={() => toggleEditProject(p.id)}
+                                            />
+                                            <span>{p.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>{t("Cancel")}</button>
+                        <button className="btn btn-primary" onClick={handleEditGhost} disabled={savingEdit || !editName || !editUsername}>
+                            {savingEdit ? t("Loading...") : t("Save Changes")}
+                        </button>
+                    </div>
+                </PortalModal>
+            )}
 
             {/* Add Member Modal - CORRETTO: senza doppio wrapping */}
             {showModal && (
@@ -302,13 +440,32 @@ const TeamPage = ({ shell }) => {
                                     onChange={(e) => setSelectedFriendId(e.target.value)}
                                 >
                                     <option value="">{t("-- Select contact --")}</option>
-                                    {friends.map(u => (
-                                        <option key={u.id} value={u.id}>
-                                            {u.displayName || u.username} (@{u.username})
-                                        </option>
-                                    ))}
+                                    {friends.length > 0 && (
+                                        <optgroup label={t("JinnLoggers")}>
+                                            {friends.map(u => {
+                                                const alreadyMember = targetProjectId && members.some(m => m.projectId === targetProjectId && m.user.id === u.id);
+                                                return (
+                                                    <option key={u.id} value={u.id} disabled={alreadyMember}>
+                                                        {u.displayName || u.username} (@{u.username}){alreadyMember ? ` - ${t("Already member")}` : ''}
+                                                    </option>
+                                                );
+                                            })}
+                                        </optgroup>
+                                    )}
+                                    {ghosts.length > 0 && (
+                                        <optgroup label={t("Virtual Members")}>
+                                            {ghosts.map(u => {
+                                                const alreadyMember = targetProjectId && members.some(m => m.projectId === targetProjectId && m.user.id === u.id);
+                                                return (
+                                                    <option key={u.id} value={u.id} disabled={alreadyMember}>
+                                                        {u.displayName || u.username} (@{u.username}){alreadyMember ? ` - ${t("Already member")}` : ''}
+                                                    </option>
+                                                );
+                                            })}
+                                        </optgroup>
+                                    )}
                                 </select>
-                                {friends.length === 0 && (
+                                {friends.length === 0 && ghosts.length === 0 && (
                                     <div className="alert alert-warning mt-2 small">
                                         {t("No connections yet...")}
                                     </div>

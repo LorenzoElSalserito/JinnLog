@@ -10,7 +10,7 @@ spring:
     active: desktop
 
   datasource:
-    url: jdbc:sqlite:${jinnlog.data.path}/jinnlog.db
+    url: jdbc:sqlite:${jinnlog.data.path}/jinnlog.db?busy_timeout=5000
     driver-class-name: org.sqlite.JDBC
 
   jpa:

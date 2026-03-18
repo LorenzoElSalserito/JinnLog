@@ -1,5 +1,6 @@
 package com.lorenzodm.jinnlog.repository;
 
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
 import com.lorenzodm.jinnlog.core.entity.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -58,32 +59,46 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     boolean existsByIdAndProjectId(String taskId, String projectId);
 
     // ========================================
-    // Query Filtri - Status
+    // Query Filtri - Status (entity-based)
     // ========================================
 
     /**
-     * Trova task per status
+     * Trova task per status name
      */
-    List<Task> findByProjectIdAndStatus(String projectId, String status);
+    @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.status.name = :statusName")
+    List<Task> findByProjectIdAndStatusName(@Param("projectId") String projectId, @Param("statusName") String statusName);
 
     /**
-     * Trova task attivi per status
+     * Trova task attivi per status name
      */
-    List<Task> findByProjectIdAndStatusAndArchivedFalse(String projectId, String status);
+    @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.status.name = :statusName AND t.archived = false")
+    List<Task> findByProjectIdAndStatusNameAndArchivedFalse(@Param("projectId") String projectId, @Param("statusName") String statusName);
+
+    /**
+     * Trova task per status ID
+     */
+    List<Task> findByProjectIdAndStatusId(String projectId, String statusId);
 
     // ========================================
-    // Query Filtri - Priority
+    // Query Filtri - Priority (entity-based)
     // ========================================
 
     /**
-     * Trova task per priorità
+     * Trova task per priority name
      */
-    List<Task> findByProjectIdAndPriority(String projectId, String priority);
+    @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.priority.name = :priorityName")
+    List<Task> findByProjectIdAndPriorityName(@Param("projectId") String projectId, @Param("priorityName") String priorityName);
 
     /**
-     * Trova task attivi per priorità
+     * Trova task attivi per priority name
      */
-    List<Task> findByProjectIdAndPriorityAndArchivedFalse(String projectId, String priority);
+    @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.priority.name = :priorityName AND t.archived = false")
+    List<Task> findByProjectIdAndPriorityNameAndArchivedFalse(@Param("projectId") String projectId, @Param("priorityName") String priorityName);
+
+    /**
+     * Trova task per priority ID
+     */
+    List<Task> findByProjectIdAndPriorityId(String projectId, String priorityId);
 
     // ========================================
     // Query Filtri - Deadline
@@ -104,7 +119,7 @@ public interface TaskRepository extends JpaRepository<Task, String> {
      */
     @Query("SELECT t FROM Task t WHERE t.project.id = :projectId " +
             "AND t.deadline < :today " +
-            "AND t.status NOT IN ('DONE', 'COMPLETED') " +
+            "AND UPPER(t.status.name) NOT IN ('DONE', 'COMPLETED') " +
             "AND t.archived = false")
     List<Task> findOverdueTasks(@Param("projectId") String projectId, @Param("today") LocalDate today);
 
@@ -159,14 +174,14 @@ public interface TaskRepository extends JpaRepository<Task, String> {
      * Ricerca avanzata con filtri multipli
      */
     @Query("SELECT t FROM Task t WHERE t.project.id = :projectId " +
-            "AND (:status IS NULL OR t.status = :status) " +
-            "AND (:priority IS NULL OR t.priority = :priority) " +
+            "AND (:statusName IS NULL OR t.status.name = :statusName) " +
+            "AND (:priorityName IS NULL OR t.priority.name = :priorityName) " +
             "AND (:searchText IS NULL OR LOWER(t.title) LIKE LOWER(CONCAT('%', :searchText, '%'))) " +
             "AND t.archived = false")
     List<Task> findWithFilters(
             @Param("projectId") String projectId,
-            @Param("status") String status,
-            @Param("priority") String priority,
+            @Param("statusName") String statusName,
+            @Param("priorityName") String priorityName,
             @Param("searchText") String searchText
     );
 
@@ -192,13 +207,8 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     /**
      * Task ordinati per priorità (custom order: HIGH > MED > LOW)
      */
-    @Query("SELECT t FROM Task t WHERE t.project.id = :projectId " +
-            "ORDER BY CASE t.priority " +
-            "WHEN 'HIGH' THEN 1 " +
-            "WHEN 'MEDIUM' THEN 2 " +
-            "WHEN 'MED' THEN 2 " +
-            "WHEN 'LOW' THEN 3 " +
-            "ELSE 4 END, t.updatedAt DESC")
+    @Query("SELECT t FROM Task t LEFT JOIN t.priority p WHERE t.project.id = :projectId " +
+            "ORDER BY COALESCE(p.level, 999) ASC, t.updatedAt DESC")
     List<Task> findByProjectIdOrderByPriorityDesc(@Param("projectId") String projectId);
 
     /**
@@ -211,21 +221,23 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     // ========================================
 
     /**
-     * Conta task per status
+     * Conta task per status name
      */
-    long countByProjectIdAndStatus(String projectId, String status);
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.project.id = :projectId AND t.status.name = :statusName")
+    long countByProjectIdAndStatusName(@Param("projectId") String projectId, @Param("statusName") String statusName);
 
     /**
-     * Conta task per priorità
+     * Conta task per priority name
      */
-    long countByProjectIdAndPriority(String projectId, String priority);
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.project.id = :projectId AND t.priority.name = :priorityName")
+    long countByProjectIdAndPriorityName(@Param("projectId") String projectId, @Param("priorityName") String priorityName);
 
     /**
      * Conta task in ritardo
      */
     @Query("SELECT COUNT(t) FROM Task t WHERE t.project.id = :projectId " +
             "AND t.deadline < :today " +
-            "AND t.status NOT IN ('DONE', 'COMPLETED') " +
+            "AND t.status IS NOT NULL AND UPPER(t.status.name) NOT IN ('DONE', 'COMPLETED') " +
             "AND t.archived = false")
     long countOverdueTasks(@Param("projectId") String projectId, @Param("today") LocalDate today);
 
@@ -233,13 +245,13 @@ public interface TaskRepository extends JpaRepository<Task, String> {
      * Conta task completati
      */
     @Query("SELECT COUNT(t) FROM Task t WHERE t.project.id = :projectId " +
-            "AND t.status IN ('DONE', 'COMPLETED')")
+            "AND t.status IS NOT NULL AND UPPER(t.status.name) IN ('DONE', 'COMPLETED')")
     long countCompletedTasks(@Param("projectId") String projectId);
 
     /**
      * Percentuale completamento progetto
      */
-    @Query("SELECT CAST(COUNT(CASE WHEN t.status IN ('DONE', 'COMPLETED') THEN 1 END) * 100.0 / COUNT(*) AS double) " +
+    @Query("SELECT COUNT(CASE WHEN t.status IS NOT NULL AND UPPER(t.status.name) IN ('DONE', 'COMPLETED') THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) " +
             "FROM Task t WHERE t.project.id = :projectId")
     Double getCompletionPercentage(@Param("projectId") String projectId);
 
@@ -267,7 +279,7 @@ public interface TaskRepository extends JpaRepository<Task, String> {
      * Trova task che necessitano sync
      */
     @Query("SELECT t FROM Task t WHERE t.syncStatus = :status OR t.lastSyncedAt < :threshold")
-    List<Task> findNeedingSync(@Param("status") String status, @Param("threshold") Instant threshold);
+    List<Task> findNeedingSync(@Param("status") SyncStatus status, @Param("threshold") Instant threshold);
 
     /**
      * Trova task modificati dopo una certa data

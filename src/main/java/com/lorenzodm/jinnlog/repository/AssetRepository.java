@@ -1,6 +1,7 @@
 package com.lorenzodm.jinnlog.repository;
 
 import com.lorenzodm.jinnlog.core.entity.Asset;
+import com.lorenzodm.jinnlog.core.entity.SyncStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -259,7 +260,7 @@ public interface AssetRepository extends JpaRepository<Asset, String> {
      * Finds assets that need synchronization.
      */
     @Query("SELECT a FROM Asset a WHERE a.syncStatus = :status OR a.lastSyncedAt < :threshold")
-    List<Asset> findNeedingSync(@Param("status") String status, @Param("threshold") Instant threshold);
+    List<Asset> findNeedingSync(@Param("status") SyncStatus status, @Param("threshold") Instant threshold);
 
     /**
      * Finds assets that have been synced to the cloud.

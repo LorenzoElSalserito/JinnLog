@@ -63,17 +63,21 @@ public class ResourceServiceImpl implements ResourceService {
         for (String memberId : memberNames.keySet()) {
             List<Task> userTasks = tasksByUser.getOrDefault(memberId, new ArrayList<>());
             String userName = memberNames.get(memberId);
-            
+
             Map<LocalDate, Integer> dailyMinutes = calculateDailyLoad(userTasks, startDate, endDate);
-            allocations.add(new ResourceAllocationResponse.UserAllocation(memberId, userName, dailyMinutes));
+            int totalEstimated = userTasks.stream().mapToInt(t -> t.getEstimatedEffort() != null ? t.getEstimatedEffort() : 0).sum();
+            int totalActual = userTasks.stream().mapToInt(t -> t.getActualEffort() != null ? t.getActualEffort() : 0).sum();
+            allocations.add(new ResourceAllocationResponse.UserAllocation(memberId, userName, dailyMinutes, totalEstimated, totalActual));
         }
-        
+
         // 6. Aggiungi entry per task non assegnati (se ce ne sono)
         if (tasksByUser.containsKey("unassigned")) {
             List<Task> unassignedTasks = tasksByUser.get("unassigned");
             if (!unassignedTasks.isEmpty()) {
                 Map<LocalDate, Integer> dailyMinutes = calculateDailyLoad(unassignedTasks, startDate, endDate);
-                allocations.add(new ResourceAllocationResponse.UserAllocation("unassigned", "Non assegnato", dailyMinutes));
+                int totalEstimated = unassignedTasks.stream().mapToInt(t -> t.getEstimatedEffort() != null ? t.getEstimatedEffort() : 0).sum();
+                int totalActual = unassignedTasks.stream().mapToInt(t -> t.getActualEffort() != null ? t.getActualEffort() : 0).sum();
+                allocations.add(new ResourceAllocationResponse.UserAllocation("unassigned", "Non assegnato", dailyMinutes, totalEstimated, totalActual));
             }
         }
 
@@ -81,17 +85,17 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     private boolean isTaskInPeriod(Task t, LocalDate start, LocalDate end) {
-        // Priorità: Scheduled Date > Deadline
-        if (t.getScheduledStart() != null) {
-            LocalDate taskStart = t.getScheduledStart().toLocalDate();
-            LocalDate taskEnd = t.getScheduledEnd() != null ? t.getScheduledEnd().toLocalDate() : taskStart;
+        // Priorità: Planned Date > Deadline
+        if (t.getPlannedStart() != null) {
+            LocalDate taskStart = t.getPlannedStart().toLocalDate();
+            LocalDate taskEnd = t.getPlannedFinish() != null ? t.getPlannedFinish().toLocalDate() : taskStart;
             return !taskEnd.isBefore(start) && !taskStart.isAfter(end);
         }
-        
+
         if (t.getDeadline() != null) {
             return !t.getDeadline().isBefore(start) && !t.getDeadline().isAfter(end);
         }
-        
+
         return false;
     }
 
@@ -99,20 +103,20 @@ public class ResourceServiceImpl implements ResourceService {
         Map<LocalDate, Integer> load = new HashMap<>();
 
         for (Task t : tasks) {
-            int minutes = t.getEstimatedMinutes() != null ? t.getEstimatedMinutes() : 0;
+            int minutes = t.getEstimatedEffort() != null ? t.getEstimatedEffort() : 0;
             if (minutes == 0) continue;
 
-            if (t.getScheduledStart() != null) {
+            if (t.getPlannedStart() != null) {
                 // Distribuisci carico tra start e end
-                LocalDate taskStart = t.getScheduledStart().toLocalDate();
-                LocalDate taskEnd = t.getScheduledEnd() != null ? t.getScheduledEnd().toLocalDate() : taskStart;
+                LocalDate taskStart = t.getPlannedStart().toLocalDate();
+                LocalDate taskEnd = t.getPlannedFinish() != null ? t.getPlannedFinish().toLocalDate() : taskStart;
                 
                 // Clamp to requested period
                 LocalDate effectiveStart = taskStart.isBefore(start) ? start : taskStart;
                 LocalDate effectiveEnd = taskEnd.isAfter(end) ? end : taskEnd;
 
                 if (!effectiveStart.isAfter(effectiveEnd)) {
-                    long days = java.time.temporal.ChronoUnit.DAYS.between(taskStart, taskEnd) + 1;
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, effectiveEnd) + 1;
                     int minutesPerDay = (int) (minutes / days);
 
                     effectiveStart.datesUntil(effectiveEnd.plusDays(1)).forEach(date -> 

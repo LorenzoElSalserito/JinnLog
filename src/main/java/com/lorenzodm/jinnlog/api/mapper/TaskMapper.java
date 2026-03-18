@@ -46,12 +46,31 @@ public class TaskMapper {
                 ? t.getBlockers().stream().map(Task::getId).collect(Collectors.toList())
                 : List.of();
 
+        List<String> childTaskIds = t.getChildTasks() != null
+                ? t.getChildTasks().stream().map(Task::getId).collect(Collectors.toList())
+                : List.of();
+
+        return buildResponse(t, tags, assets, checklist, blockerIds, childTaskIds);
+    }
+
+    public TaskResponse toResponseLight(Task t) {
+        return buildResponse(t, null, null, null, null, null);
+    }
+
+    private TaskResponse buildResponse(Task t, List<TagResponse> tags, List<AssetResponse> assets,
+                                       List<TaskChecklistItemResponse> checklist, List<String> blockerIds,
+                                       List<String> childTaskIds) {
         return new TaskResponse(
                 t.getId(),
                 t.getTitle(),
                 t.getDescription(),
-                t.getStatus(),
-                t.getPriority(),
+                t.getStatus() != null ? t.getStatus().getId() : null,
+                t.getStatus() != null ? t.getStatus().getName() : null,
+                t.getStatus() != null ? t.getStatus().getColor() : null,
+                t.getPriority() != null ? t.getPriority().getId() : null,
+                t.getPriority() != null ? t.getPriority().getName() : null,
+                t.getPriority() != null ? t.getPriority().getColor() : null,
+                t.getPriority() != null ? t.getPriority().getLevel() : 0,
                 t.getDeadline(),
                 t.getOwner(),
                 t.getNotes(),
@@ -61,14 +80,14 @@ public class TaskMapper {
                 t.getCreatedAt(),
                 t.getUpdatedAt(),
                 t.getLastSyncedAt(),
-                t.getSyncStatus(),
+                t.getSyncStatus().name(),
                 t.getProject() != null ? t.getProject().getId() : null,
                 t.getAssignedTo() != null ? t.getAssignedTo().getId() : null,
                 t.getReminderDate(),
                 t.isReminderEnabled(),
                 t.isNotificationSent(),
-                t.getEstimatedMinutes(),
-                t.getActualMinutes(),
+                t.getEstimatedEffort(),
+                t.getActualEffort(),
                 t.getAssetPath(),
                 t.getAssetFileName(),
                 t.getAssetMimeType(),
@@ -79,51 +98,12 @@ public class TaskMapper {
                 t.getTotalFocusTimeMs(),
                 t.isOverdue(),
                 t.getType().name(),
-                t.getScheduledStart(),
-                t.getScheduledEnd(),
+                t.getPlannedStart(),
+                t.getPlannedFinish(),
                 t.isBlocked(),
-                blockerIds
-        );
-    }
-
-    public TaskResponse toResponseLight(Task t) {
-        return new TaskResponse(
-                t.getId(),
-                t.getTitle(),
-                t.getDescription(),
-                t.getStatus(),
-                t.getPriority(),
-                t.getDeadline(),
-                t.getOwner(),
-                t.getNotes(),
-                t.getMarkdownNotes(),
-                t.isArchived(),
-                t.getSortOrder(),
-                t.getCreatedAt(),
-                t.getUpdatedAt(),
-                t.getLastSyncedAt(),
-                t.getSyncStatus(),
-                t.getProject() != null ? t.getProject().getId() : null,
-                t.getAssignedTo() != null ? t.getAssignedTo().getId() : null,
-                t.getReminderDate(),
-                t.isReminderEnabled(),
-                t.isNotificationSent(),
-                t.getEstimatedMinutes(),
-                t.getActualMinutes(),
-                t.getAssetPath(),
-                t.getAssetFileName(),
-                t.getAssetMimeType(),
-                t.getAssetSizeBytes(),
-                null,
-                null,
-                null,
-                null,
-                t.isOverdue(),
-                t.getType().name(),
-                t.getScheduledStart(),
-                t.getScheduledEnd(),
-                t.isBlocked(),
-                null
+                blockerIds,
+                t.getParentTask() != null ? t.getParentTask().getId() : null,
+                childTaskIds
         );
     }
 

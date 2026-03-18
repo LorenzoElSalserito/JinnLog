@@ -6,7 +6,6 @@ import AppShell from "./layout/AppShell.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import SplashScreen from "@pages/SplashScreen.jsx";
 import DebugLogger from "./components/DebugLogger.jsx"; // Re-import DebugLogger PERMANENTE
-import FocusManager from "./components/FocusManager.jsx"; // JinnLog: Import Focus Manager
 import "./styles/index.css";
 import "./styles/jinnlog-shell.css";
 import "./i18n"; // Import i18n configuration
@@ -306,7 +305,6 @@ export default function App() {
     if (appState === AppState.ONBOARDING) {
         return (
             <>
-                <FocusManager />
                 <DebugLogger contextName="Onboarding" />
                 <OnboardingPage
                     bootstrapData={bootstrapData}
@@ -335,7 +333,6 @@ export default function App() {
 
     return (
         <>
-            <FocusManager />
             <DebugLogger contextName="AppShell" />
             <AppShell
                 initialUser={currentUser}

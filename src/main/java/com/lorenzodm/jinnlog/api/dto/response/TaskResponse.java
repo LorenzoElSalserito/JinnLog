@@ -16,8 +16,15 @@ public record TaskResponse(
         String id,
         String title,
         String description,
-        String status,
-        String priority,
+        // Status entity fields
+        String statusId,
+        String statusName,
+        String statusColor,
+        // Priority entity fields
+        String priorityId,
+        String priorityName,
+        String priorityColor,
+        int priorityLevel,
         LocalDate deadline,
         String owner,
         String notes,
@@ -33,8 +40,8 @@ public record TaskResponse(
         LocalDateTime reminderDate,
         boolean reminderEnabled,
         boolean notificationSent,
-        Integer estimatedMinutes,
-        Integer actualMinutes,
+        Integer estimatedEffort,
+        Integer actualEffort,
         String assetPath,
         String assetFileName,
         String assetMimeType,
@@ -44,11 +51,15 @@ public record TaskResponse(
         List<TaskChecklistItemResponse> checklistItems,
         Long totalFocusTimeMs,
         Boolean isOverdue,
-        
-        // Nuovo in v0.5.0
+
+        // v0.6.0
         String type,
-        LocalDateTime scheduledStart,
-        LocalDateTime scheduledEnd,
+        LocalDateTime plannedStart,
+        LocalDateTime plannedFinish,
         Boolean isBlocked,
-        List<String> blockerIds // Lista ID dei task che bloccano questo
+        List<String> blockerIds,
+
+        // Phase 2 - SUMMARY_TASK hierarchy
+        String parentTaskId,
+        List<String> childTaskIds
 ) {}

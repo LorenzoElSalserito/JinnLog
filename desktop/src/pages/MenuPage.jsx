@@ -4,6 +4,8 @@ import { toast } from "react-toastify";
 import ProjectDetailModal from "../components/ProjectDetailModal.jsx";
 import Modal from "../components/Modal.jsx";
 import { useTranslation } from 'react-i18next';
+import { useModal } from "../hooks/useModal.js";
+// import { Dropdown } from 'react-bootstrap'; // REMOVED: react-bootstrap not installed
 
 /**
  * MenuPage - Lista Progetti
@@ -22,6 +24,7 @@ import { useTranslation } from 'react-i18next';
  */
 export default function MenuPage({ shell }) {
     const { t } = useTranslation();
+    const modal = useModal();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -55,6 +58,10 @@ export default function MenuPage({ shell }) {
             </div>
         );
         shell?.setRightPanel?.(null);
+
+        return () => {
+            shell?.setHeaderActions?.(null);
+        };
     }, [shell, showArchived, t]);
 
     // Handle Nav Actions (e.g. from Command Palette)
@@ -144,8 +151,7 @@ export default function MenuPage({ shell }) {
 
     const handleArchiveProject = async (project) => {
         const newStatus = !project.archived;
-        const action = newStatus ? "archiviare" : "riaprire";
-
+        
         try {
             await jinn.projectsSetArchived(project.id, newStatus);
             toast.success(t("Success"));
@@ -196,7 +202,7 @@ export default function MenuPage({ shell }) {
                                             {project.name}
                                         </h5>
                                         <div className="dropdown">
-                                            <button className="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="dropdown">
+                                            <button className="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="dropdown" aria-expanded="false">
                                                 <i className="bi bi-three-dots-vertical"></i>
                                             </button>
                                             <ul className="dropdown-menu dropdown-menu-end">
@@ -208,7 +214,10 @@ export default function MenuPage({ shell }) {
                                                 </li>
                                                 <li><hr className="dropdown-divider" /></li>
                                                 <li>
-                                                    <button className="dropdown-item text-danger" onClick={() => { if(confirm(t("Delete project?"))) handleDeleteProject(project.id); }}>
+                                                    <button className="dropdown-item text-danger" onClick={async () => {
+                                                        const confirmed = await modal.confirm({ title: t("Delete project?") });
+                                                        if (confirmed) handleDeleteProject(project.id);
+                                                    }}>
                                                         <i className="bi bi-trash me-2"></i>
                                                         {t("Delete")}
                                                     </button>

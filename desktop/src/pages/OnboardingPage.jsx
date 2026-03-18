@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { jinn } from "../api/jinn.js";
 import Logo from "../assets/Logo.svg";
 import { useTranslation } from 'react-i18next';
+import { useModal } from '../hooks/useModal';
 
 /**
  * OnboardingPage - Schermata di profilazione al primo avvio
@@ -14,10 +15,11 @@ import { useTranslation } from 'react-i18next';
  *
  * @author Lorenzo DM
  * @since 0.3.0
- * @version 0.5.3
+ * @version 0.9.0
  */
 export default function OnboardingPage({ onProfileSelected, bootstrapData, onRetry }) {
     const { t, i18n } = useTranslation();
+    const modal = useModal();
     // ========================================
     // State
     // ========================================
@@ -112,7 +114,12 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
     const handleDeleteProfile = async (e, userId, userName) => {
         e.stopPropagation(); // Evita selezione profilo
         
-        if (!window.confirm(`${t("Are you sure you want to delete profile")} "${userName}"? ${t("This action cannot be undone.")}`)) {
+        const confirmed = await modal.confirm({
+            title: t('Conferma eliminazione'),
+            message: `${t("Are you sure you want to delete profile")} "${userName}"? ${t("This action cannot be undone.")}`
+        });
+
+        if (!confirmed) {
             return;
         }
 
@@ -367,7 +374,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
 
             {!hasProfiles && (
                 <p className="text-muted mb-4">
-                    {t("Welcome to JinnLog! To get started, create your user profile.")}
+                    {t("To get started, create your user profile.")}
                 </p>
             )}
 
@@ -417,10 +424,10 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                     </div>
                 </div>
 
-                {/* Email (opzionale) */}
+                {/* Email */}
                 <div className="mb-3">
                     <label htmlFor="email" className="form-label">
-                        {t("Email (optional)")}
+                        {t("Email")}
                     </label>
                     <input
                         type="email"
@@ -550,7 +557,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                         />
                     </div>
                     <h2 className="fw-bold">JinnLog</h2>
-                    <p className="text-muted">{t("Planner & Task Manager")}</p>
+                    <p className="text-muted">{t("Project Management Suite")}</p>
                 </div>
 
                 {/* Error Alert */}
@@ -563,6 +570,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                             className="btn btn-sm btn-outline-danger"
                             onClick={() => setError(null)}
                         >
+.
                             {t("Close")}
                         </button>
                     </div>
@@ -583,12 +591,7 @@ export default function OnboardingPage({ onProfileSelected, bootstrapData, onRet
                 </div>
 
                 {/* Footer */}
-                <div className="onboarding-footer text-center mt-4 pt-4 border-top">
-                    <small className="text-muted">
-                        JinnLog v{bootstrapData?.systemInfo?.version || "0.3.0"} —
-                        {t("Mode")}: {bootstrapData?.systemInfo?.mode || "desktop"}
-                    </small>
-                </div>
+
             </div>
 
             {/* Stili inline per questa pagina */}
