@@ -5,39 +5,54 @@ JinnLog is a comprehensive productivity and project management suite designed to
 ## Project Overview
 
 JinnLog aims to provide a consistent user experience across platforms, acting as a central hub for:
-- Project and Task Management
-- Time Tracking and Focus Sessions
-- Team Collaboration and Resource Planning
-- Knowledge Management (Contextual Notes)
+- Core Work & Project Management
+- Contextual Notes & Knowledge Base
+- Time Tracking, Estimates & Productivity Analytics
+- Advanced Planning (WBS, Dependencies, Calendars)
+- Resource Planning & Allocation
+- Executive Dashboard, Tracking & Charter
+- Project Templates & Guided Setup
+- Local-First Data Platform & Semantic Sync
 
 The architecture separates the frontend (Electron + React) from the backend (Java + Spring Boot), allowing the backend to serve as a headless API that can run embedded locally or hosted on a remote server.
 
 ## Key Features
 
-### Core Productivity
-- **Advanced Task Management:** Support for priorities, deadlines, status workflows, and rich Markdown notes.
-- **Task Dependencies:** Implementation of blocking relationships (Task B cannot be completed if Task A is incomplete).
+### Core Productivity & Work Management
+- **Advanced Task Management:** Support for priorities, deadlines, status workflows, tags, and rich Markdown notes.
+- **Task Dependencies:** Implementation of blocking relationships (FS, SS, FF, SF) with lead and lag.
 - **Checklists:** Granular sub-tasks within a main task to track specific steps.
-- **Tags & Organization:** Multi-tagging system for cross-project filtering.
+- **Views:** List, Kanban Board, Timeline, Gantt, and Workload views with shared selection contexts and cross-view experience.
+
+### Advanced Planning & Execution Control
+- **WBS & Milestones:** Work Breakdown Structure numbering, summary tasks, and zero-duration milestones.
+- **Execution Control:** Baselines, variance tracking (schedule, effort), forecasting, and tracking of project progress.
+- **Work Calendars & Capacity Engine:** Definition of working hours, holidays, exceptions, and daily capacity rules at workspace, team, or user level.
+- **Resource Allocation:** Effort assignments, workload slicing, ghost users, and over-allocation alerts.
+
+### Executive Dashboard & Charter
+- **Chart Tab:** A synthetic view containing project charter, team roles, goals, and problem statement.
+- **Business Case & Key Success Metrics:** Track target vs. achieved metrics and business value.
+- **Risk & Deliverable Tracking:** Visual risk register, OKRs panel, and high-level phase timelines.
 
 ### Time Tracking & Analytics
 - **Focus Sessions:** Integrated timer for tracking actual work time against estimates.
 - **Analytics:** Calculation of estimation deviation (Estimated vs Actual minutes) to improve planning accuracy.
-- **Resource View:** Daily capacity management (default 8 hours) with overload detection for team members.
 
 ### Team & Collaboration
-- **Role-Based Access Control (RBAC):** Granular permissions at the project level (Owner, Editor, Viewer).
-- **Team Management:** Creation of teams and management of members.
+- **Role-Based Access Control (RBAC):** Granular permissions at the project level (Owner, Admin, Editor, Viewer).
+- **Team Management:** Creation of teams and management of members, followers/watchers, and connections.
 - **Ghost Users:** Ability to create placeholder users for resource planning and assignment before they have a real account.
-- **Notifications:** System for tracking task assignments and updates.
+- **Notifications:** System for tracking task assignments, status changes, and mentions.
 
 ### Technical & Architecture
-- **Local-First Database:** Uses SQLite for zero-configuration local storage, with support for migration to PostgreSQL/MySQL.
-- **Cloud-Ready Synchronization:**
-  - **Soft Delete:** Entities are marked as deleted rather than removed, ensuring deletion propagation during sync.
-  - **Optimistic Locking:** Version control on entities to prevent write conflicts in concurrent environments.
-  - **Last-Write-Wins (LWW):** Architectural preparation for conflict resolution during data synchronization.
-- **Asset Management:** Abstracted file storage service (currently local filesystem, extensible to S3).
+- **Local-First Database:** Uses SQLite for zero-configuration local storage, with support for external supported databases.
+- **Planning-Aware Semantic Sync:** 
+  - **Differentiated Merge Policies:** Treats text, sets, checklists, hierarchies, and graphs differently to avoid unresolvable conflicts.
+  - **Soft Delete & Conflict Review:** Entities are marked as deleted rather than removed, with manual conflict review support.
+- **Project Templates:** Template Gallery (e.g., Project Timeline, Gantt Project, Event Marketing Timeline) providing structural blueprints, default views, deliverables, and metrics.
+- **Integrations:** ICS calendar feed, CSV import/export, and transfer manifests.
+- **Asset Management:** Abstracted file storage service for task, note, and project attachments (currently local filesystem).
 
 ## Technology Stack
 
@@ -90,11 +105,12 @@ The application is configured via `application.yml`. Key configuration propertie
 
 The database schema is managed via Flyway migrations located in `src/main/resources/db/migration`. This ensures that the local database schema is always consistent with the code version.
 
-Key tables include:
-- `users`: Stores profiles and ghost users.
-- `projects` & `tasks`: Core domain entities.
+Key tables and entities include:
+- `users`, `teams`, `memberships`: Identity and collaboration.
+- `projects`, `tasks`, `dependencies`: Core domain entities and planning.
 - `focus_sessions`: Time tracking logs.
-- `user_settings`: User preferences (theme, language, daily capacity).
+- `user_settings`, `work_calendars`: Configuration and capacity management.
+- `dashboard_widgets`, `metrics`, `deliverables`: Execution tracking and charter data.
 
 ## License
 
