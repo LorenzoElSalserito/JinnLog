@@ -2,9 +2,10 @@ name: Build Desktop
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
+    tags: [ "*RELEASE" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:
@@ -41,7 +42,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Serve Java anche qui per eseguire jlink
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -60,7 +60,6 @@ jobs:
           path: desktop/backend-libs
 
       # Generazione JRE Custom con jlink
-      # Includiamo i moduli standard necessari per Spring Boot + JDBC + Security
       - name: Generate Custom JRE
         shell: bash
         run: |
@@ -76,7 +75,6 @@ jobs:
         working-directory: ./desktop
         run: npm ci
 
-      # Build e Package (usa lo script "dist" che abbiamo configurato)
       - name: Build & Package Electron App
         working-directory: ./desktop
         env:
@@ -92,3 +90,57 @@ jobs:
             desktop/dist-electron/*.exe
             desktop/dist-electron/*.zip
             desktop/dist-electron/*.dmg
+
+  # Crea archivio sorgenti scaricabile come artifact
+  source-archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Source Archive
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          git archive --format=zip --prefix="JinnLog-${VERSION}/" HEAD -o "JinnLog-${VERSION}-source.zip"
+          git archive --format=tar.gz --prefix="JinnLog-${VERSION}/" HEAD -o "JinnLog-${VERSION}-source.tar.gz"
+
+      - name: Upload Source Archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-code
+          path: |
+            JinnLog-*-source.zip
+            JinnLog-*-source.tar.gz
+
+  # Crea una GitHub Release quando si pusha un tag v*
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-desktop, source-archive]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          cp artifacts/source-code/* release-files/ || true
+          cp artifacts/desktop-app-ubuntu-latest/* release-files/ || true
+          cp artifacts/desktop-app-windows-latest/* release-files/ || true
+          cp artifacts/desktop-app-macos-latest/* release-files/ || true
+          cp artifacts/backend-jar/* release-files/ || true
+          ls -la release-files/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

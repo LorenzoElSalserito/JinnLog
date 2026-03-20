@@ -636,6 +636,51 @@ export default function ChartPage({ shell }) {
     const [okrs, setOkrs] = useState([]);
     const [variance, setVariance] = useState(null);
 
+    const loadData = useCallback(async () => {
+        if (!shell?.currentProject) {
+            setLoading(false);
+            return;
+        }
+        try {
+            setLoading(true);
+            const projectId = shell.currentProject.id;
+            const data = await jinn.executiveDashboard(projectId);
+            setDashboard(data || {});
+            setCharter(data?.charter || {});
+            setRisks(data?.risks || []);
+            setDeliverables(data?.deliverables || []);
+            setOkrs(data?.okrs || []);
+            setVariance(data?.latestVariance || null);
+        } catch (e) {
+            console.error("Error loading dashboard", e);
+            // Fallback: load individual endpoints
+            try {
+                const projectId = shell.currentProject.id;
+                const [charterData, risksList, deliverablesList, okrsList] = await Promise.all([
+                    jinn.projectCharterGet(projectId).catch(() => ({})),
+                    jinn.projectRisksList(projectId).catch(() => []),
+                    jinn.projectDeliverablesList(projectId).catch(() => []),
+                    jinn.okrsList(projectId).catch(() => []),
+                ]);
+                setCharter(charterData || {});
+                setRisks(risksList || []);
+                setDeliverables(deliverablesList || []);
+                setOkrs(okrsList || []);
+                const latestVar = await jinn.baselinesLatestVariance(projectId).catch(() => null);
+                setVariance(latestVar);
+            } catch (fallbackErr) {
+                toast.error(t("Error loading dashboard"));
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [shell?.currentProject, t]);
+
+    // Load data when project changes
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
     useEffect(() => {
         shell?.setTitle?.(t("Executive Dashboard"));
         shell?.setHeaderActions?.(
@@ -671,44 +716,7 @@ export default function ChartPage({ shell }) {
         return () => {
             shell?.setHeaderActions?.(null);
         };
-    }, [shell, t]);
-
-    const loadData = useCallback(async () => {
-        if (!shell?.currentProject) return;
-        try {
-            setLoading(true);
-            const projectId = shell.currentProject.id;
-            const data = await jinn.executiveDashboard(projectId);
-            setDashboard(data || {});
-            setCharter(data?.charter || {});
-            setRisks(data?.risks || []);
-            setDeliverables(data?.deliverables || []);
-            setOkrs(data?.okrs || []);
-            setVariance(data?.latestVariance || null);
-        } catch (e) {
-            console.error("Error loading dashboard", e);
-            // Fallback: load individual endpoints
-            try {
-                const projectId = shell.currentProject.id;
-                const [charterData, risksList, deliverablesList, okrsList] = await Promise.all([
-                    jinn.projectCharterGet(projectId).catch(() => ({})),
-                    jinn.projectRisksList(projectId).catch(() => []),
-                    jinn.projectDeliverablesList(projectId).catch(() => []),
-                    jinn.okrsList(projectId).catch(() => []),
-                ]);
-                setCharter(charterData || {});
-                setRisks(risksList || []);
-                setDeliverables(deliverablesList || []);
-                setOkrs(okrsList || []);
-                const latestVar = await jinn.baselinesLatestVariance(projectId).catch(() => null);
-                setVariance(latestVar);
-            } catch (fallbackErr) {
-                toast.error(t("Error loading dashboard"));
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [shell?.currentProject, t]);
+    }, [shell, t, loadData]);
 
     const projectId = shell?.currentProject?.id;
 
@@ -768,8 +776,8 @@ export default function ChartPage({ shell }) {
         } catch (e) { toast.error(t("Error saving")); }
     };
 
-    if (loading) return <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>;
     if (!shell?.currentProject) return <div className="text-center py-5 text-muted">{t("Select a project")}</div>;
+    if (loading) return <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>;
 
     return (
         <div className="container-fluid p-4 h-100 overflow-auto bg-light">

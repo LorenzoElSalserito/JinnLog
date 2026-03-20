@@ -289,7 +289,7 @@ export default function KanbanPage({ shell }) {
         statuses.map(s => ({
             id: s.id,
             name: s.name,
-            label: t(s.name === "IN_PROGRESS" ? "In Progress" : s.name === "TODO" ? "To Do" : s.name === "DONE" ? "Done" : s.name),
+            label: t(s.name === "IN_PROGRESS" ? "In Progress" : s.name === "TODO" ? "To Do" : s.name === "DONE" ? "Done" : s.name === "BLOCKED" ? "Blocked" : s.name === "REVIEW" ? "Review" : s.name === "CANCELLED" ? "Cancelled" : s.name),
             color: s.color || "#6c757d",
             icon: STATUS_ICONS[s.name] || "bi-circle",
         })),

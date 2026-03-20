@@ -6,6 +6,14 @@ import PortalModal from '../components/PortalModal.jsx';
 import { useTranslation } from 'react-i18next';
 import { useModal } from '../hooks/useModal.js';
 
+// Format date as YYYY-MM-DD using local time (avoids DST/UTC shift bugs)
+const toLocalDateStr = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const ResourcePage = ({ shell }) => {
     const { t, i18n } = useTranslation();
     const modal = useModal();
@@ -86,7 +94,7 @@ const ResourcePage = ({ shell }) => {
             const end = new Date(start);
             end.setDate(end.getDate() + rangeDays - 1);
 
-            const data = await jinn.resourceAllocation(selectedProjectId, startDate, end.toISOString().split('T')[0]);
+            const data = await jinn.resourceAllocation(selectedProjectId, startDate, toLocalDateStr(end));
             setAllocations(data.allocations || []); // Ensure allocations is array
 
         } catch (e) {
@@ -276,7 +284,7 @@ const ResourcePage = ({ shell }) => {
                         <tr>
                             <th style={{ width: 200, minWidth: 200 }} className="ps-4 py-3">{t("Member")}</th>
                             {dates.map(d => (
-                                <th key={d.toISOString()} className="text-center small py-3" style={{ width: 100, minWidth: 100 }}>
+                                <th key={toLocalDateStr(d)} className="text-center small py-3" style={{ width: 100, minWidth: 100 }}>
                                     <div className="fw-bold">{d.toLocaleDateString(i18n.language, { weekday: 'short' })}</div>
                                     <div className="text-muted">{d.getDate()}</div>
                                 </th>
@@ -310,7 +318,7 @@ const ResourcePage = ({ shell }) => {
                                         </div>
                                     </td>
                                     {dates.map(d => {
-                                        const dateStr = d.toISOString().split('T')[0];
+                                        const dateStr = toLocalDateStr(d);
                                         const minutes = user.dailyMinutes[dateStr] || 0;
                                         const hours = (minutes / 60).toFixed(1);
 
