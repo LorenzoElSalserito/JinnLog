@@ -281,9 +281,7 @@ export default function App() {
                         <p className="mb-2">{error}</p>
                         <hr />
                         <p className="small mb-3">
-                            Verifica che il backend Java sia avviato.
-                            <br />
-                            In IntelliJ: Run → JinnLogApplication
+                            Qualcosa è andato storto, riprova.
                         </p>
                         <button
                             className="btn btn-primary"

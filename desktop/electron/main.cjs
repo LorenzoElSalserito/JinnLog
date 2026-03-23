@@ -145,7 +145,7 @@ function tryParseBackendPort(content) {
     return null;
 }
 
-function waitForBackendPort(retries = 20, delay = 1000) {
+function waitForBackendPort(retries = 60, delay = 1000) {
     return new Promise((resolve) => {
         const portFile = getBackendPortFile();
         let attempts = 0;
@@ -224,7 +224,7 @@ function startBackend() {
     if (isDev) {
         console.log("[Main] Dev mode: Skipping backend spawn (assume running externally)");
         // Try to read port immediately, assuming it's already running
-        return waitForBackendPort(5, 500).then(p => {
+        return waitForBackendPort(60, 500).then(p => {
             backendPort = p || BACKEND_DEFAULT_PORT;
         });
     }
@@ -274,7 +274,7 @@ function startBackend() {
         backendProcess = null;
     });
 
-    return waitForBackendPort().then(p => {
+    return waitForBackendPort(120, 500).then(p => {
         if (p) backendPort = p;
         else console.warn("[Main] Failed to retrieve backend port after spawn.");
     });
